@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -12,6 +13,7 @@ import (
 type Peer struct {
 	Address string
 	Port    string
+	rw      *bufio.ReadWriter
 }
 
 // Serialize - Get a serialized peer like address:port
@@ -21,19 +23,27 @@ func (p *Peer) Serialize() (serialized string) {
 
 // Node - Struct representing a node in the p2p network.
 type Node struct {
-	allPeers []Peer
-	seedNode *Peer
-	maxPeers int
-	handler  func(net.Conn)
+	allPeers       []*Peer
+	connectedPeers []*Peer
+	seedNode       *Peer
+	maxPeers       int
+	handler        func(bufio.ReadWriter)
 
 	isHost      bool
 	hostAddress string
 	hostPort    string
 }
 
-// SetStreamHandler - Set the function to handle the stream on data, in or out.
-func (n *Node) SetStreamHandler(handler func(net.Conn)) {
+// SetMessageStreamHandler - Set the function to handle the incomming message stream
+func (n *Node) SetMessageStreamHandler(handler func(bufio.ReadWriter)) {
 	n.handler = handler
+}
+
+// SendMessage - Sends a message to all peers
+func (n *Node) SendMessage(message string) {
+	for _, peer := range n.connectedPeers {
+		peer.rw.Write([]byte(message))
+	}
 }
 
 // SetSeedNode - Set the seed node that is used to detect other nodes in the network
@@ -53,12 +63,14 @@ func (n Node) makeHostString() string {
 }
 
 // TODO: Auth
-func (n Node) connectToHost(p *Peer) {
+func (n *Node) connectToHost(p *Peer) {
 	conn, _ := net.Dial("tcp", p.Serialize())
-	go n.handler(conn)
+	p.rw = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+	n.connectedPeers = append(n.connectedPeers, p)
+	go n.handler(*p.rw)
 }
 
-func startHostListener(n *Node) {
+func (n *Node) startHostListener() {
 	// Start listening to port 8888 for TCP connection
 	listener, err := net.Listen("tcp", n.makeHostString())
 	if err != nil {
@@ -71,24 +83,34 @@ func startHostListener(n *Node) {
 		fmt.Println("Listener closed")
 	}()
 
-	// Get net.TCPConn object
-	conn, err := listener.Accept()
-	if err != nil {
-		fmt.Println(err)
-	}
+	go func() {
+		for {
+			// Get net.TCPConn object
+			conn, err := listener.Accept()
+			if err != nil {
+				fmt.Println(err)
+			}
+			rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+			newPeer := &Peer{Address: conn.RemoteAddr().String(), Port: "", rw: rw}
+			n.connectedPeers = append(n.connectedPeers, newPeer)
 
-	// Use their handler
-	go n.handler(conn)
+			go n.handler(*rw)
+		}
+	}()
 
 }
 
 // Start - Starts the node's discovery, and opens a stream to a subset of peerList.
 func (n *Node) Start() {
 	if n.seedNode == nil && len(n.allPeers) > 0 { // No seed node provided
-		rand.Seed(time.Now().Unix())                           // initialize global pseudo random generator
-		n.SetSeedNode(&n.allPeers[rand.Intn(len(n.allPeers))]) // Pick a random peer to get seed node
+		rand.Seed(time.Now().Unix())                          // initialize global pseudo random generator
+		n.SetSeedNode(n.allPeers[rand.Intn(len(n.allPeers))]) // Pick a random peer to get seed node
 	} else {
 		panic(errors.New("No seed node could be found"))
+	}
+
+	if n.isHost {
+		n.startHostListener()
 	}
 
 	// Find other nodes from the seed node
