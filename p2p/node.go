@@ -31,8 +31,8 @@ type Node struct {
 	hostPort    string
 }
 
-// SetMessageStreamHandler - Set the function to handle the incomming message stream
-func (n *Node) SetMessageStreamHandler(handler func(*bufio.ReadWriter)) {
+// SetIncommingMessageHandler - Set the function to handle the incomming message stream
+func (n *Node) SetIncommingMessageHandler(handler func(*bufio.ReadWriter)) {
 	n.handler = handler
 }
 

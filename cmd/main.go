@@ -23,7 +23,7 @@ func main() {
 	}
 
 	node := &p2p.Node{}
-	node.SetMessageStreamHandler(handleConnection)
+	node.SetIncommingMessageHandler(handleConnection)
 
 	if *target != "" {
 		address := strings.Split(*target, ":")[0]
