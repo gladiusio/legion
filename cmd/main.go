@@ -13,6 +13,8 @@ import (
 )
 
 func main() {
+	//state := make(map[string]string)
+
 	// Parse options from the command line
 	listenF := flag.Int("l", 0, "wait for incoming connections")
 	target := flag.String("d", "", "target peer to dial")
@@ -51,21 +53,15 @@ func main() {
 }
 
 func handleConnection(rw *bufio.ReadWriter) {
-	log.Println("Got a new stream")
+	log.Println("Got a new message input stream")
 
-	go readData(rw)
-}
-
-func readData(rw *bufio.ReadWriter) {
 	for {
 		str, err := rw.ReadString('\n')
 		if err != nil {
-			log.Fatal(err)
+			log.Print(err)
+			break
 		}
 
 		fmt.Println(str)
 	}
-}
-
-func writeData(rw *bufio.ReadWriter) {
 }

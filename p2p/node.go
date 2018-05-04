@@ -2,8 +2,11 @@ package p2p
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"math/rand"
 	"net"
+	"time"
 )
 
 // Peer - Information to connect to a peer
@@ -72,7 +75,7 @@ func (n *Node) connectToHost(p *Peer) {
 	}
 	p.rw = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	n.connectedPeers = append(n.connectedPeers, p)
-	go n.handler(p.rw)
+	go func() { n.handler(p.rw); conn.Close() }()
 }
 
 func (n *Node) startHostListener() {
@@ -94,7 +97,7 @@ func (n *Node) startHostListener() {
 			newPeer := &Peer{Address: conn.RemoteAddr().String(), Port: "", rw: rw}
 			n.connectedPeers = append(n.connectedPeers, newPeer)
 
-			go n.handler(rw)
+			go func() { n.handler(rw); conn.Close() }()
 		}
 	}()
 
@@ -102,12 +105,12 @@ func (n *Node) startHostListener() {
 
 // Start - Starts the node's discovery, and opens a stream to a subset of peerList.
 func (n *Node) Start() {
-	// if n.seedNode == nil && len(n.allPeers) > 0 { // No seed node provided
-	// 	rand.Seed(time.Now().Unix())                          // initialize global pseudo random generator
-	// 	n.SetSeedNode(n.allPeers[rand.Intn(len(n.allPeers))]) // Pick a random peer to get seed node
-	// } else {
-	// 	panic(errors.New("No seed node could be found"))
-	// }
+	if n.seedNode == nil && len(n.allPeers) > 0 { // No seed node provided
+		rand.Seed(time.Now().Unix())                          // initialize global pseudo random generator
+		n.SetSeedNode(n.allPeers[rand.Intn(len(n.allPeers))]) // Pick a random peer to get seed node
+	} else {
+		panic(errors.New("No seed node could be found"))
+	}
 
 	if n.isHost {
 		n.startHostListener()
