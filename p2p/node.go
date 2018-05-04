@@ -2,11 +2,8 @@ package p2p
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"math/rand"
 	"net"
-	"time"
 )
 
 // Peer - Information to connect to a peer
@@ -27,7 +24,7 @@ type Node struct {
 	connectedPeers []*Peer
 	seedNode       *Peer
 	maxPeers       int
-	handler        func(bufio.ReadWriter)
+	handler        func(*bufio.ReadWriter)
 
 	isHost      bool
 	hostAddress string
@@ -35,20 +32,26 @@ type Node struct {
 }
 
 // SetMessageStreamHandler - Set the function to handle the incomming message stream
-func (n *Node) SetMessageStreamHandler(handler func(bufio.ReadWriter)) {
+func (n *Node) SetMessageStreamHandler(handler func(*bufio.ReadWriter)) {
 	n.handler = handler
 }
 
 // SendMessage - Sends a message to all peers
 func (n *Node) SendMessage(message string) {
 	for _, peer := range n.connectedPeers {
-		peer.rw.Write([]byte(message))
+		peer.rw.WriteString(fmt.Sprintf("%s\n", message))
+		peer.rw.Flush()
 	}
 }
 
 // SetSeedNode - Set the seed node that is used to detect other nodes in the network
 func (n *Node) SetSeedNode(seed *Peer) {
 	n.seedNode = seed
+}
+
+// AddPeer - Force add a peer by connecting to it.
+func (n *Node) AddPeer(peer *Peer) {
+	n.connectToHost(peer)
 }
 
 // SetUpHost - Sets up a host on the given address and port
@@ -62,12 +65,14 @@ func (n Node) makeHostString() string {
 	return fmt.Sprintf("%s:%s", n.hostAddress, n.hostPort)
 }
 
-// TODO: Auth
 func (n *Node) connectToHost(p *Peer) {
-	conn, _ := net.Dial("tcp", p.Serialize())
+	conn, err := net.Dial("tcp", p.Serialize())
+	if err != nil {
+		panic(err)
+	}
 	p.rw = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	n.connectedPeers = append(n.connectedPeers, p)
-	go n.handler(*p.rw)
+	go n.handler(p.rw)
 }
 
 func (n *Node) startHostListener() {
@@ -77,11 +82,6 @@ func (n *Node) startHostListener() {
 		fmt.Println(err)
 		return
 	}
-
-	defer func() {
-		listener.Close()
-		fmt.Println("Listener closed")
-	}()
 
 	go func() {
 		for {
@@ -94,7 +94,7 @@ func (n *Node) startHostListener() {
 			newPeer := &Peer{Address: conn.RemoteAddr().String(), Port: "", rw: rw}
 			n.connectedPeers = append(n.connectedPeers, newPeer)
 
-			go n.handler(*rw)
+			go n.handler(rw)
 		}
 	}()
 
@@ -102,12 +102,12 @@ func (n *Node) startHostListener() {
 
 // Start - Starts the node's discovery, and opens a stream to a subset of peerList.
 func (n *Node) Start() {
-	if n.seedNode == nil && len(n.allPeers) > 0 { // No seed node provided
-		rand.Seed(time.Now().Unix())                          // initialize global pseudo random generator
-		n.SetSeedNode(n.allPeers[rand.Intn(len(n.allPeers))]) // Pick a random peer to get seed node
-	} else {
-		panic(errors.New("No seed node could be found"))
-	}
+	// if n.seedNode == nil && len(n.allPeers) > 0 { // No seed node provided
+	// 	rand.Seed(time.Now().Unix())                          // initialize global pseudo random generator
+	// 	n.SetSeedNode(n.allPeers[rand.Intn(len(n.allPeers))]) // Pick a random peer to get seed node
+	// } else {
+	// 	panic(errors.New("No seed node could be found"))
+	// }
 
 	if n.isHost {
 		n.startHostListener()
