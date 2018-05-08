@@ -10,7 +10,7 @@ import (
 )
 
 // New - Returns a new StateNode
-func New(target string, listenAddress string, listenPort string) StateNode {
+func NewAuthorizedStateNode(target string, listenAddress string, listenPort string) AuthStateNode {
 	node := &p2p.Node{}
 	node.SetIncommingMessageHandler(handleConnection)
 
@@ -28,23 +28,23 @@ func New(target string, listenAddress string, listenPort string) StateNode {
 
 	node.SendMessage("Announcing Me!")
 
-	return StateNode{}
+	return AuthStateNode{}
 }
 
 // StateNode - Node with state and identity
-type StateNode struct {
+type AuthStateNode struct {
 	node *p2p.Node
 }
 
-func (sn *StateNode) PushState() {
+func (sn *AuthStateNode) PushState() {
 
 }
 
-func (sn StateNode) StateOf( /*Need an address here*/ ) {
+func (sn AuthStateNode) StateOf( /*Need an address here*/ ) {
 
 }
 
-func (sn *StateNode) RegisterIdentity() {
+func (sn *AuthStateNode) RegisterIdentity() {
 
 }
 
