@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/deckarep/golang-set"
-	"github.com/gladiusio/gladius-p2p/pkg/blockchain"
+	"github.com/gladiusio/gladius-common/pkg/blockchain"
 	"github.com/gladiusio/gladius-p2p/pkg/p2p/signature"
 	"github.com/gladiusio/gladius-p2p/pkg/p2p/state"
 	"github.com/hashicorp/memberlist"

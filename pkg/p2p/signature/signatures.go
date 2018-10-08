@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"time"
 
-	response2 "github.com/gladiusio/gladius-controld/pkg/routing/response"
-	"github.com/gladiusio/gladius-controld/pkg/utils"
+	"github.com/gladiusio/gladius-common/pkg/routing/responses"
+	"github.com/gladiusio/gladius-common/pkg/request"
 	"github.com/spf13/viper"
 
 	"github.com/buger/jsonparser"
@@ -113,8 +113,8 @@ func (sm SignedMessage) IsInPoolAndVerified() bool {
 
 	poolUrl := viper.GetString("Blockchain.PoolUrl")
 
-	response, _ := utils.SendRequest(http.MethodGet, poolUrl+"applications/pool/contains/"+nodeAddress, nil)
-	var defaultResponse response2.DefaultResponse
+	response, _ := request.SendRequest(http.MethodGet, poolUrl+"applications/pool/contains/"+nodeAddress, nil)
+	var defaultResponse responses.DefaultResponse
 	json.Unmarshal([]byte(response), &defaultResponse)
 
 	byteResponse, _ := json.Marshal(defaultResponse.Response)
