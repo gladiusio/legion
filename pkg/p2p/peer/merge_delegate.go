@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gladiusio/gladius-controld/pkg/p2p/message"
+	"github.com/gladiusio/gladius-p2p/pkg/p2p/message"
 	"github.com/hashicorp/memberlist"
 	"github.com/satori/go.uuid"
 )

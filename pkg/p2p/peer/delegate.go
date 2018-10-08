@@ -3,9 +3,9 @@ package peer
 import (
 	"encoding/json"
 
-	"github.com/gladiusio/gladius-controld/pkg/p2p/message"
-	"github.com/gladiusio/gladius-controld/pkg/p2p/signature"
-	"github.com/gladiusio/gladius-controld/pkg/p2p/state"
+	"github.com/gladiusio/gladius-p2p/pkg/p2p/message"
+	"github.com/gladiusio/gladius-p2p/pkg/p2p/signature"
+	"github.com/gladiusio/gladius-p2p/pkg/p2p/state"
 )
 
 type delegate struct {

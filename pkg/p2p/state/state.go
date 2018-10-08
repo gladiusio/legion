@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/buger/jsonparser"
-	"github.com/gladiusio/gladius-controld/pkg/p2p/signature"
+	"github.com/gladiusio/gladius-p2p/pkg/p2p/signature"
 )
 
 // State is a type that represents the network state

@@ -15,8 +15,8 @@ import (
 
 	"github.com/buger/jsonparser"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/gladiusio/gladius-controld/pkg/blockchain"
-	"github.com/gladiusio/gladius-controld/pkg/p2p/message"
+	"github.com/gladiusio/gladius-p2p/pkg/blockchain"
+	"github.com/gladiusio/gladius-p2p/pkg/p2p/message"
 	"github.com/gladiusio/gladius-utils/config"
 	"github.com/tdewolff/minify"
 	mjson "github.com/tdewolff/minify/json"
