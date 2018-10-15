@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/gladiusio/gladius-common/pkg/routing/responses"
 	"github.com/gladiusio/gladius-common/pkg/requests"
+	"github.com/gladiusio/gladius-common/pkg/routing/responses"
 	"github.com/spf13/viper"
 
 	"github.com/buger/jsonparser"
