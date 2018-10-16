@@ -51,3 +51,21 @@ func (l *Legion) RegisterPlugin(p ...*plugin.Interface) {
 func (l *Legion) Listen() {
 
 }
+
+// FireMessageEvent fires a new message event and sends context to the correct plugin
+// methods based on the event type
+func (l *Legion) FireMessageEvent(eventType MessageEvent, message *message.Message) error {
+	return nil
+}
+
+// FirePeerEvent fires a peer event and sends context to the correct plugin methods
+// based on the event type
+func (l *Legion) FirePeerEvent(eventType PeerEvent, peer ...*Peer) error {
+	return nil
+}
+
+// FireNetworkEvent fires a network event and sends network context to the correct
+// plugin method based on the event type
+func (l *Legion) FireNetworkEvent(eventType NetEvent) error {
+	return nil
+}
