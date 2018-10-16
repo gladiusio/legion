@@ -5,7 +5,7 @@ package plugin
 type Plugin interface {
 	// When a new message is recieved by the network, NewMessage() is
 	// called on all registered plugins
-	NewMessage(ctx *PluginContext)
+	NewMessage(ctx *MessageContext)
 
 	// When a new peer is added to the network via the AddPeer() method,
 	// PeerAdded() is called on all registered plugins
