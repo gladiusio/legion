@@ -8,6 +8,8 @@ import (
 
 // Legion is a type with methods to interface with the network
 type Legion struct {
+	plugins []plugin.Interface // Registered plugins, these are called when plugin events happen
+
 }
 
 // Broadcast sends the message to all writeable peers, unless a
@@ -40,11 +42,12 @@ func (l *Legion) DeletePeer(address ...utils.KCPAddress) {
 }
 
 // RegisterPlugin registers a plugin(s) with the network
-func (l *Legion) RegisterPlugin(p ...*plugin.Plugin) {
+func (l *Legion) RegisterPlugin(p ...*plugin.Interface) {
 
 }
 
-// Listen will listen on the configured address for incomming connections
+// Listen will listen on the configured address for incomming connections, it will
+// also wait for all plugin's Startup() methods to return before binding.
 func (l *Legion) Listen() {
 
 }
