@@ -27,18 +27,18 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 // and storing it in the open streams list. This however does not authorize
 // a stream to be writeable by the Broadcast methods, that must be done by
 // marking it as writable by calling PromotePeer()
-func (l *Legion) AddPeer(address ...utils.KCPAddress) {
-
+func (l *Legion) AddPeer(address ...utils.KCPAddress) error {
+	return nil
 }
 
 // PromotePeer makes the given peer(s) writeable
-func (l *Legion) PromotePeer(address ...utils.KCPAddress) {
-
+func (l *Legion) PromotePeer(address ...utils.KCPAddress) error {
+	return nil
 }
 
 // DeletePeer closes all connections to a peer(s) and removes it from all peer lists
-func (l *Legion) DeletePeer(address ...utils.KCPAddress) {
-
+func (l *Legion) DeletePeer(address ...utils.KCPAddress) error {
+	return nil
 }
 
 // RegisterPlugin registers a plugin(s) with the network
@@ -54,18 +54,45 @@ func (l *Legion) Listen() {
 
 // FireMessageEvent fires a new message event and sends context to the correct plugin
 // methods based on the event type
-func (l *Legion) FireMessageEvent(eventType MessageEvent, message *message.Message) error {
-	return nil
+func (l *Legion) FireMessageEvent(eventType MessageEvent, message *message.Message) {
+	go func() {
+		messageContext := &plugin.MessageContext{} // Create some context for our plugin
+		for _, p := range l.plugins {
+			if eventType == NewMessageEvent {
+				p.NewMessage(messageContext)
+			}
+		}
+	}()
 }
 
 // FirePeerEvent fires a peer event and sends context to the correct plugin methods
 // based on the event type
-func (l *Legion) FirePeerEvent(eventType PeerEvent, peer ...*Peer) error {
-	return nil
+func (l *Legion) FirePeerEvent(eventType PeerEvent, peer ...*Peer) {
+	go func() {
+		peerContext := &plugin.PeerContext{} // Create some context for our plugin
+		for _, p := range l.plugins {
+			if eventType == PeerAddEvent {
+				p.PeerAdded(peerContext)
+			} else if eventType == PeerDeleteEvent {
+				p.PeerDeleted(peerContext)
+			} else if eventType == PeerPromotionEvent {
+				p.PeerPromotion(peerContext)
+			}
+		}
+	}()
 }
 
 // FireNetworkEvent fires a network event and sends network context to the correct
 // plugin method based on the event type
-func (l *Legion) FireNetworkEvent(eventType NetEvent) error {
-	return nil
+func (l *Legion) FireNetworkEvent(eventType NetEvent) {
+	go func() {
+		netContext := &plugin.NetworkContext{}
+		for _, p := range l.plugins {
+			if eventType == StartupEvent {
+				p.Startup(netContext)
+			} else if eventType == CloseEvent {
+				p.Close(netContext)
+			}
+		}
+	}()
 }
