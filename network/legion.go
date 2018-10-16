@@ -6,7 +6,7 @@ import (
 	"github.com/gladiusio/legion/utils"
 )
 
-// Legion is a type with methods to interface with the p2p network
+// Legion is a type with methods to interface with the network
 type Legion struct {
 }
 
@@ -29,18 +29,18 @@ func (l *Legion) AddPeer(address ...utils.KCPAddress) {
 
 }
 
-// PromotePeer makes the given peer writeable
+// PromotePeer makes the given peer(s) writeable
 func (l *Legion) PromotePeer(address ...utils.KCPAddress) {
 
 }
 
-// DeletePeer closes all connections to a peer and removes it from all peer lists
+// DeletePeer closes all connections to a peer(s) and removes it from all peer lists
 func (l *Legion) DeletePeer(address ...utils.KCPAddress) {
 
 }
 
-// RegisterPlugin registers a plugin with the network
-func (l *Legion) RegisterPlugin(p *plugin.Plugin) {
+// RegisterPlugin registers a plugin(s) with the network
+func (l *Legion) RegisterPlugin(p ...*plugin.Plugin) {
 
 }
 
