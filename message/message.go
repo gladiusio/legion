@@ -6,8 +6,9 @@ import "github.com/gladiusio/legion/utils"
 // It is simple by design to allow for signifigant customization
 // of the network and it's message processing.
 type Message struct {
-	Sender   utils.KCPAddress
-	Type     string
-	Message  interface{}
-	Checksum string
+	Sender      utils.KCPAddress
+	Type        string
+	Body        []byte
+	Checksum    []byte
+	Compression bool
 }

@@ -27,7 +27,7 @@ func (*Generic) PeerPromotion(ctx *PeerContext) {}
 // PeerDeleted is called when a peer is deleted
 func (*Generic) PeerDeleted(ctx *PeerContext) {}
 
-// Startup is called when the network starts
+// Startup is called when the local peer starts listening
 func (*Generic) Startup(ctx *NetworkContext) {}
 
 // Close is called when the network is shutdown
