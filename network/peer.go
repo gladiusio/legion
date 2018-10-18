@@ -44,6 +44,6 @@ func (p *Peer) Dial() error {
 }
 
 // Close closes the stream if it exists
-func (p *Peer) Close() {
-
+func (p *Peer) Close() error {
+	return nil
 }
