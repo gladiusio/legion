@@ -1,7 +1,7 @@
 package network
 
 import (
-	"fmt"
+	"bufio"
 	"net"
 
 	"github.com/gladiusio/legion/utils"
@@ -27,7 +27,7 @@ type Peer struct {
 	// The channel of incoming messages
 	recieveChan chan *Message
 
-	// TODO: Need some KCP connection here
+	rw *bufio.ReadWriter
 }
 
 // QueueMessage queues the specified message to be sent to the remote
@@ -61,10 +61,7 @@ func (p *Peer) OpenStream() error {
 		return err
 	}
 
-	// Stream implements net.Conn
-	stream.Write([]byte("ping"))
-	stream.Write([]byte("ping"))
-
+	p.rw = bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 	return nil
 }
 
@@ -82,13 +79,7 @@ func (p *Peer) RecieveStream(conn net.Conn) error {
 		return err
 	}
 
-	go func() {
-		for {
-			buf := make([]byte, 4)
-			stream.Read(buf)
-			fmt.Println(buf)
-		}
-	}()
+	p.rw = bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
 	return nil
 }
 
