@@ -12,7 +12,7 @@ type KCPAddress struct {
 	port uint16
 }
 
-// String returns a formatted KCP address like host:port
+// String returns a formatted KCP address like "host:port"
 func (k KCPAddress) String() string {
 	return ""
 }

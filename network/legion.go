@@ -11,6 +11,16 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 )
 
+// NewLegion creates a legion object from a config
+func NewLegion(conf *LegionConfig) *Legion {
+	return &Legion{
+		promotedPeers: &sync.Map{},
+		allPeers:      &sync.Map{},
+		plugins:       make([]plugin.Interface, 0, 0),
+		config:        conf,
+	}
+}
+
 // Legion is a type with methods to interface with the network
 type Legion struct {
 	// These peers are written to by the broadcast and broadcast random (when a peer list isn't provided).
@@ -25,6 +35,9 @@ type Legion struct {
 
 	// Registered plugins, these are called in order when plugin events happen
 	plugins []plugin.Interface
+
+	// Our config type
+	config *LegionConfig
 }
 
 // Broadcast sends the message to all writeable peers, unless a
