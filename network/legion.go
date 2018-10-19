@@ -159,7 +159,7 @@ func (l *Legion) Listen() {
 	defer l.FireNetworkEvent(events.CloseEvent)
 
 	// TODO: Listen loop goes here, this would see an incoming steam and
-	// create a peer in l.allPeers
+	// create a peer in l.allPeers by calling p.RecieveStream()
 
 }
 
