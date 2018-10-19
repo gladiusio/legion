@@ -1,7 +1,9 @@
 package network
 
 import (
+	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/gladiusio/legion/message"
 	"github.com/gladiusio/legion/plugin"
@@ -51,9 +53,11 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.KCPAddress)); return true })
 
 	// addrs contains all peers addresses now, lets select N random
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	for i := 0; i < n; i++ {
-		l.Broadcast(message, addrs[i])
-		addrs = append(addrs[:i], addrs[i+1:]...) // Cut out i to stop repeat broadcasts
+		rn := r.Intn(len(addrs) - 1)
+		l.Broadcast(message, addrs[rn])
+		addrs = append(addrs[:rn], addrs[rn+1:]...) // Cut out i to stop repeat broadcasts
 	}
 }
 

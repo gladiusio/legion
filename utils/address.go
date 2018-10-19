@@ -1,20 +1,22 @@
 package utils
 
 // NewKCPAddress returns a KCPAddress object
-func NewKCPAddress(host string, port uint16) *KCPAddress {
-	return &KCPAddress{host: host, port: port}
+func NewKCPAddress(host string, port uint16) KCPAddress {
+	host = resolveHost(host)
+	return KCPAddress{host: host, port: port}
 }
 
-// KCPAddress is a wrapper that allows easy interaction and
-// parsing of addresses, it also deals with address deduplication
-// by returning the same string if addresses have the same
-// actual destination
+//KCPAddress is a comparable type with a few convinience methods
 type KCPAddress struct {
 	host string
 	port uint16
 }
 
-// String returns a formatted KCP address
-func (k KCPAddress) String() {
+// String returns a formatted KCP address like host:port
+func (k KCPAddress) String() string {
+	return ""
+}
 
+func resolveHost(host string) string {
+	return ""
 }
