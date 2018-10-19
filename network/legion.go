@@ -18,6 +18,7 @@ func NewLegion(conf *config.LegionConfig) *Legion {
 		allPeers:      &sync.Map{},
 		plugins:       make([]PluginInterface, 0),
 		config:        conf,
+		Started:       make(chan struct{}),
 	}
 }
 
@@ -38,6 +39,9 @@ type Legion struct {
 
 	// Our config type
 	config *config.LegionConfig
+
+	//
+	Started chan struct{}
 }
 
 // Broadcast sends the message to all writeable peers, unless a
@@ -161,6 +165,7 @@ func (l *Legion) Listen() {
 	// TODO: Listen loop goes here, this would see an incoming steam and
 	// create a peer in l.allPeers by calling p.RecieveStream()
 
+	close(l.Started)
 }
 
 // FireMessageEvent fires a new message event and sends context to the correct plugin
