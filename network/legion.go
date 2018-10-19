@@ -84,7 +84,7 @@ func (l *Legion) AddPeer(addresses ...utils.KCPAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
 		p := NewPeer(address)
-		err := p.Dial()
+		err := p.OpenStream()
 		if err != nil {
 			result = multierror.Append(result, err)
 			continue
@@ -106,7 +106,7 @@ func (l *Legion) PromotePeer(addresses ...utils.KCPAddress) error {
 			l.FirePeerEvent(PeerPromotionEvent, p.(*Peer))
 		} else { // If not we create a new peer and dial it
 			p := NewPeer(address)
-			err := p.Dial()
+			err := p.OpenStream()
 			if err != nil {
 				result = multierror.Append(result, err)
 				continue

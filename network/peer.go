@@ -38,8 +38,13 @@ func (p *Peer) IncomingMessages() chan *message.Message {
 	return p.recieveChan
 }
 
-// Dial opens a stream to the peer
-func (p *Peer) Dial() error {
+// OpenStream dials the remote and opens a stream to the peer
+func (p *Peer) OpenStream() error {
+	return nil
+}
+
+// RecieveStream takes an incoming connection and creates a stream from it
+func (p *Peer) RecieveStream() error {
 	return nil
 }
 
