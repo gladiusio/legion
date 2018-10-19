@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gladiusio/legion/message"
-	"github.com/gladiusio/legion/plugin"
 	"github.com/gladiusio/legion/utils"
 	multierror "github.com/hashicorp/go-multierror"
 )
@@ -16,7 +14,7 @@ func NewLegion(conf *LegionConfig) *Legion {
 	return &Legion{
 		promotedPeers: &sync.Map{},
 		allPeers:      &sync.Map{},
-		plugins:       make([]plugin.Interface, 0, 0),
+		plugins:       make([]PluginInterface, 0),
 		config:        conf,
 	}
 }
@@ -34,7 +32,7 @@ type Legion struct {
 	allPeers *sync.Map
 
 	// Registered plugins, these are called in order when plugin events happen
-	plugins []plugin.Interface
+	plugins []PluginInterface
 
 	// Our config type
 	config *LegionConfig
@@ -42,7 +40,7 @@ type Legion struct {
 
 // Broadcast sends the message to all writeable peers, unless a
 // specified list of peers is provided
-func (l *Legion) Broadcast(message *message.Message, addresses ...utils.KCPAddress) {
+func (l *Legion) Broadcast(message *Message, addresses ...utils.KCPAddress) {
 	// Send to all promoted peers
 	if len(addresses) == 0 {
 		l.promotedPeers.Range(func(k, v interface{}) bool { v.(*Peer).QueueMessage(message); return true })
@@ -60,7 +58,7 @@ func (l *Legion) Broadcast(message *message.Message, addresses ...utils.KCPAddre
 }
 
 // BroadcastRandom broadcasts a message to N random promoted peers
-func (l *Legion) BroadcastRandom(message *message.Message, n int) {
+func (l *Legion) BroadcastRandom(message *Message, n int) {
 	// sync.Map doesn't store length, so we get n random like this
 	addrs := make([]utils.KCPAddress, 0, 100)
 	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.KCPAddress)); return true })
@@ -145,7 +143,7 @@ func (l *Legion) PeerPromoted(address utils.KCPAddress) bool {
 }
 
 // RegisterPlugin registers a plugin(s) with the network
-func (l *Legion) RegisterPlugin(plugins ...plugin.Interface) {
+func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
 	for _, p := range plugins {
 		l.plugins = append(l.plugins, p)
 	}
@@ -165,9 +163,9 @@ func (l *Legion) Listen() {
 
 // FireMessageEvent fires a new message event and sends context to the correct plugin
 // methods based on the event type
-func (l *Legion) FireMessageEvent(eventType MessageEvent, message *message.Message) {
+func (l *Legion) FireMessageEvent(eventType MessageEvent, message *Message) {
 	go func() {
-		messageContext := &plugin.MessageContext{} // Create some context for our plugin
+		messageContext := &MessageContext{} // Create some context for our plugin
 		for _, p := range l.plugins {
 			if eventType == NewMessageEvent {
 				go p.NewMessage(messageContext)
@@ -180,7 +178,7 @@ func (l *Legion) FireMessageEvent(eventType MessageEvent, message *message.Messa
 // based on the event type
 func (l *Legion) FirePeerEvent(eventType PeerEvent, peer ...*Peer) {
 	go func() {
-		peerContext := &plugin.PeerContext{} // Create some context for our plugin
+		peerContext := &PeerContext{} // Create some context for our plugin
 		for _, p := range l.plugins {
 			if eventType == PeerAddEvent {
 				go p.PeerAdded(peerContext)
@@ -197,7 +195,7 @@ func (l *Legion) FirePeerEvent(eventType PeerEvent, peer ...*Peer) {
 // plugin method based on the event type. NOTE: This method blocks until all are
 // completed
 func (l *Legion) FireNetworkEvent(eventType NetEvent) {
-	netContext := &plugin.NetworkContext{}
+	netContext := &NetworkContext{}
 	for _, p := range l.plugins {
 		if eventType == StartupEvent {
 			p.Startup(netContext)

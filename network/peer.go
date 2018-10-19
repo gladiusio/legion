@@ -1,7 +1,6 @@
 package network
 
 import (
-	"github.com/gladiusio/legion/message"
 	"github.com/gladiusio/legion/utils"
 )
 
@@ -19,22 +18,22 @@ type Peer struct {
 
 	// The internal channel we write to to send a new message
 	// to the remote
-	sendQueue chan *message.Message
+	sendQueue chan *Message
 
 	// The channel of incoming messages
-	recieveChan chan *message.Message
+	recieveChan chan *Message
 
 	// TODO: Need some KCP connection here
 }
 
 // QueueMessage queues the specified message to be sent to the remote
-func (p *Peer) QueueMessage(m *message.Message) {
+func (p *Peer) QueueMessage(m *Message) {
 	go func() { p.sendQueue <- m }()
 }
 
 // IncomingMessages returns a channel of every message recieved from
 // the remote peer
-func (p *Peer) IncomingMessages() chan *message.Message {
+func (p *Peer) IncomingMessages() chan *Message {
 	return p.recieveChan
 }
 

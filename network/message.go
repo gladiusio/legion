@@ -1,4 +1,4 @@
-package message
+package network
 
 import "github.com/gladiusio/legion/utils"
 
