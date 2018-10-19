@@ -40,7 +40,7 @@ type Legion struct {
 	// Our config type
 	config *config.LegionConfig
 
-	//
+	// Started is a channel that blocks unti Listen() completes
 	Started chan struct{}
 }
 
