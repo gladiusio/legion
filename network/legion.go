@@ -5,12 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gladiusio/legion/network/config"
+	"github.com/gladiusio/legion/network/events"
 	"github.com/gladiusio/legion/utils"
 	multierror "github.com/hashicorp/go-multierror"
 )
 
 // NewLegion creates a legion object from a config
-func NewLegion(conf *LegionConfig) *Legion {
+func NewLegion(conf *config.LegionConfig) *Legion {
 	return &Legion{
 		promotedPeers: &sync.Map{},
 		allPeers:      &sync.Map{},
@@ -35,7 +37,7 @@ type Legion struct {
 	plugins []PluginInterface
 
 	// Our config type
-	config *LegionConfig
+	config *config.LegionConfig
 }
 
 // Broadcast sends the message to all writeable peers, unless a
@@ -101,7 +103,7 @@ func (l *Legion) PromotePeer(addresses ...utils.KCPAddress) error {
 	for _, address := range addresses {
 		if p, ok := l.allPeers.Load(address); ok { // If the peer exists, we add it to the promoted peers
 			l.promotedPeers.Store(address, p.(*Peer))
-			l.FirePeerEvent(PeerPromotionEvent, p.(*Peer))
+			l.FirePeerEvent(events.PeerPromotionEvent, p.(*Peer))
 		} else { // If not we create a new peer and dial it
 			p := NewPeer(address)
 			err := p.OpenStream()
@@ -111,7 +113,7 @@ func (l *Legion) PromotePeer(addresses ...utils.KCPAddress) error {
 			}
 			l.allPeers.Store(address, p)
 			l.promotedPeers.Store(address, p)
-			l.FirePeerEvent(PeerPromotionEvent, p)
+			l.FirePeerEvent(events.PeerPromotionEvent, p)
 		}
 	}
 	return result.ErrorOrNil()
@@ -153,8 +155,8 @@ func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
 // also wait for all plugin's Startup() methods to return before binding.
 func (l *Legion) Listen() {
 	// Setup start and stop calls on our plugin list
-	l.FireNetworkEvent(StartupEvent)
-	defer l.FireNetworkEvent(CloseEvent)
+	l.FireNetworkEvent(events.StartupEvent)
+	defer l.FireNetworkEvent(events.CloseEvent)
 
 	// TODO: Listen loop goes here, this would see an incoming steam and
 	// create a peer in l.allPeers
@@ -163,11 +165,11 @@ func (l *Legion) Listen() {
 
 // FireMessageEvent fires a new message event and sends context to the correct plugin
 // methods based on the event type
-func (l *Legion) FireMessageEvent(eventType MessageEvent, message *Message) {
+func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *Message) {
 	go func() {
 		messageContext := &MessageContext{} // Create some context for our plugin
 		for _, p := range l.plugins {
-			if eventType == NewMessageEvent {
+			if eventType == events.NewMessageEvent {
 				go p.NewMessage(messageContext)
 			}
 		}
@@ -176,15 +178,15 @@ func (l *Legion) FireMessageEvent(eventType MessageEvent, message *Message) {
 
 // FirePeerEvent fires a peer event and sends context to the correct plugin methods
 // based on the event type
-func (l *Legion) FirePeerEvent(eventType PeerEvent, peer ...*Peer) {
+func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer ...*Peer) {
 	go func() {
 		peerContext := &PeerContext{} // Create some context for our plugin
 		for _, p := range l.plugins {
-			if eventType == PeerAddEvent {
+			if eventType == events.PeerAddEvent {
 				go p.PeerAdded(peerContext)
-			} else if eventType == PeerDeleteEvent {
+			} else if eventType == events.PeerDeleteEvent {
 				go p.PeerDeleted(peerContext)
-			} else if eventType == PeerPromotionEvent {
+			} else if eventType == events.PeerPromotionEvent {
 				go p.PeerPromotion(peerContext)
 			}
 		}
@@ -194,12 +196,12 @@ func (l *Legion) FirePeerEvent(eventType PeerEvent, peer ...*Peer) {
 // FireNetworkEvent fires a network event and sends network context to the correct
 // plugin method based on the event type. NOTE: This method blocks until all are
 // completed
-func (l *Legion) FireNetworkEvent(eventType NetEvent) {
+func (l *Legion) FireNetworkEvent(eventType events.NetworkEvent) {
 	netContext := &NetworkContext{}
 	for _, p := range l.plugins {
-		if eventType == StartupEvent {
+		if eventType == events.StartupEvent {
 			p.Startup(netContext)
-		} else if eventType == CloseEvent {
+		} else if eventType == events.CloseEvent {
 			p.Close(netContext)
 		}
 	}
@@ -211,7 +213,7 @@ func (l *Legion) addMessageListener(p *Peer) {
 		for {
 			select {
 			case m := <-p.IncomingMessages():
-				l.FireMessageEvent(NewMessageEvent, m)
+				l.FireMessageEvent(events.NewMessageEvent, m)
 			}
 		}
 	}()

@@ -1,4 +1,4 @@
-package network
+package events
 
 // MessageEvent represents some sort of message event,
 // like a new message
@@ -20,12 +20,12 @@ const (
 	PeerPromotionEvent
 )
 
-// NetEvent represents some sort of network event,
+// NetworkEvent represents some sort of network event,
 // like startup/shutdown.
-type NetEvent int
+type NetworkEvent int
 
 // The actual events
 const (
-	StartupEvent NetEvent = iota
+	StartupEvent NetworkEvent = iota
 	CloseEvent
 )
