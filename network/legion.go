@@ -1,7 +1,9 @@
 package network
 
 import (
+	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 
@@ -46,7 +48,7 @@ type Legion struct {
 
 // Broadcast sends the message to all writeable peers, unless a
 // specified list of peers is provided
-func (l *Legion) Broadcast(message *Message, addresses ...utils.KCPAddress) {
+func (l *Legion) Broadcast(message *Message, addresses ...utils.LegionAddress) {
 	// Send to all promoted peers
 	if len(addresses) == 0 {
 		l.promotedPeers.Range(func(k, v interface{}) bool { v.(*Peer).QueueMessage(message); return true })
@@ -66,8 +68,8 @@ func (l *Legion) Broadcast(message *Message, addresses ...utils.KCPAddress) {
 // BroadcastRandom broadcasts a message to N random promoted peers
 func (l *Legion) BroadcastRandom(message *Message, n int) {
 	// sync.Map doesn't store length, so we get n random like this
-	addrs := make([]utils.KCPAddress, 0, 100)
-	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.KCPAddress)); return true })
+	addrs := make([]utils.LegionAddress, 0, 100)
+	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.LegionAddress)); return true })
 
 	// addrs contains all peers addresses now, lets select N random
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -84,7 +86,7 @@ func (l *Legion) BroadcastRandom(message *Message, n int) {
 // to all peers will not send to the added peers unless they are
 // promoted. Returns an error if one or more peers can't be dialed,
 // however all peers will have a dial attempt.
-func (l *Legion) AddPeer(addresses ...utils.KCPAddress) error {
+func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
 		p := NewPeer(address)
@@ -102,7 +104,7 @@ func (l *Legion) AddPeer(addresses ...utils.KCPAddress) error {
 // PromotePeer makes the given peer(s) writeable, if the peer doesn't exist
 // it is created first. Returns an error if one or more peers can't be dialed,
 // however all peers will have a dial attempt.
-func (l *Legion) PromotePeer(addresses ...utils.KCPAddress) error {
+func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
 		if p, ok := l.allPeers.Load(address); ok { // If the peer exists, we add it to the promoted peers
@@ -126,7 +128,7 @@ func (l *Legion) PromotePeer(addresses ...utils.KCPAddress) error {
 // DeletePeer closes all connections to a peer(s) and removes it from all peer lists.
 // Returns an error if there is an error closing one or more peers. No matter the
 // error, there will be an attempt to close all peers.
-func (l *Legion) DeletePeer(addresses ...utils.KCPAddress) {
+func (l *Legion) DeletePeer(addresses ...utils.LegionAddress) {
 	for _, address := range addresses {
 		if p, ok := l.allPeers.Load(address); ok {
 			p.(*Peer).Close()
@@ -137,13 +139,13 @@ func (l *Legion) DeletePeer(addresses ...utils.KCPAddress) {
 }
 
 // PeerExists returns whether or not a peer has been connected to previously
-func (l *Legion) PeerExists(address utils.KCPAddress) bool {
+func (l *Legion) PeerExists(address utils.LegionAddress) bool {
 	_, ok := l.allPeers.Load(address)
 	return ok
 }
 
 // PeerPromoted returns whether or not a peer is promoted.
-func (l *Legion) PeerPromoted(address utils.KCPAddress) bool {
+func (l *Legion) PeerPromoted(address utils.LegionAddress) bool {
 	_, ok := l.promotedPeers.Load(address)
 	return ok
 }
@@ -162,10 +164,27 @@ func (l *Legion) Listen() {
 	l.FireNetworkEvent(events.StartupEvent)
 	defer l.FireNetworkEvent(events.CloseEvent)
 
-	// TODO: Listen loop goes here, this would see an incoming steam and
-	// create a peer in l.allPeers by calling p.RecieveStream()
+	listener, err := net.Listen("tcp", l.config.BindAddress.String())
+	if err != nil {
+		panic(err)
+	}
 
-	close(l.started)
+	// Signal after a delay we're listening
+	go func() {
+		time.Sleep(1 * time.Second)
+		close(l.started)
+	}()
+
+	// Accept incoming TCP connections
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			panic(err)
+		}
+
+		// Handle the incoming connection and create a peer
+		go l.handleStream(conn)
+	}
 }
 
 // Started blocks until the network is running
@@ -227,4 +246,17 @@ func (l *Legion) addMessageListener(p *Peer) {
 			}
 		}
 	}()
+}
+
+func (l *Legion) handleStream(conn net.Conn) {
+	// Create a new peer
+	addrString := conn.RemoteAddr().String()
+	address := utils.FromString(addrString)
+	p := NewPeer(address)
+	err := p.RecieveStream(conn)
+	if err != nil {
+		fmt.Println(err)
+	}
+	l.allPeers.Store(address, p)
+	l.addMessageListener(p)
 }

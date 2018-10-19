@@ -1,20 +1,24 @@
 package network
 
 import (
+	"fmt"
+	"net"
+
 	"github.com/gladiusio/legion/utils"
+	"github.com/hashicorp/yamux"
 )
 
 // NewPeer returns a new peer from the given remote. It also
 // sets up the reading and writing channels
-func NewPeer(remote utils.KCPAddress) *Peer {
-	return &Peer{}
+func NewPeer(remote utils.LegionAddress) *Peer {
+	return &Peer{remote: remote}
 }
 
 // Peer is an type that allows easy communication with
 // a remote peer
 type Peer struct {
 	// The remote Address to dial
-	remote utils.KCPAddress
+	remote utils.LegionAddress
 
 	// The internal channel we write to to send a new message
 	// to the remote
@@ -39,11 +43,52 @@ func (p *Peer) IncomingMessages() chan *Message {
 
 // OpenStream dials the remote and opens a stream to the peer
 func (p *Peer) OpenStream() error {
+	// Get a TCP connection
+	conn, err := net.Dial("tcp", p.remote.String())
+	if err != nil {
+		return err
+	}
+
+	// Setup client side of yamux
+	session, err := yamux.Client(conn, nil)
+	if err != nil {
+		return err
+	}
+
+	// Open a new stream
+	stream, err := session.Open()
+	if err != nil {
+		return err
+	}
+
+	// Stream implements net.Conn
+	stream.Write([]byte("ping"))
+	stream.Write([]byte("ping"))
+
 	return nil
 }
 
 // RecieveStream takes an incoming connection and creates a stream from it
-func (p *Peer) RecieveStream() error {
+func (p *Peer) RecieveStream(conn net.Conn) error {
+	// Setup server side of yamux
+	session, err := yamux.Server(conn, nil)
+	if err != nil {
+		return err
+	}
+
+	// Accept a stream
+	stream, err := session.Accept()
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for {
+			buf := make([]byte, 4)
+			stream.Read(buf)
+			fmt.Println(buf)
+		}
+	}()
 	return nil
 }
 
