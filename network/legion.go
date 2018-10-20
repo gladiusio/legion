@@ -159,14 +159,14 @@ func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
 
 // Listen will listen on the configured address for incomming connections, it will
 // also wait for all plugin's Startup() methods to return before binding.
-func (l *Legion) Listen() {
+func (l *Legion) Listen() error {
 	// Setup start and stop calls on our plugin list
 	l.FireNetworkEvent(events.StartupEvent)
 	defer l.FireNetworkEvent(events.CloseEvent)
 
 	listener, err := net.Listen("tcp", l.config.BindAddress.String())
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	// Signal after a delay we're listening
@@ -179,7 +179,7 @@ func (l *Legion) Listen() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		// Handle the incoming connection and create a peer
