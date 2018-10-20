@@ -183,7 +183,7 @@ func (l *Legion) Listen() error {
 		}
 
 		// Handle the incoming connection and create a peer
-		go l.handleStream(conn)
+		go l.handlNewConnection(conn)
 	}
 }
 
@@ -248,8 +248,10 @@ func (l *Legion) addMessageListener(p *Peer) {
 	}()
 }
 
-func (l *Legion) handleStream(conn net.Conn) {
-	// Create a new peer
+func (l *Legion) handlNewConnection(conn net.Conn) {
+	// Create a new peer (kinda hacky rn, should have some control message to get
+	// the dialable address of the remote, so we don't dial them and open another
+	// stream )
 	addrString := conn.RemoteAddr().String()
 	address := utils.FromString(addrString)
 	p := NewPeer(address)
