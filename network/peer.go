@@ -161,4 +161,7 @@ func (p *Peer) readMessage(conn net.Conn) {
 	for _, rchan := range p.recieveChans {
 		go func(c chan *message.Message) { c <- m }(rchan)
 	}
+
+	// Close this message stream
+	conn.Close()
 }
