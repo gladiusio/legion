@@ -55,5 +55,41 @@ func (p *Peer) CreateSession(conn net.Conn) error {
 
 // Close closes the stream if it exists
 func (p *Peer) Close() error {
-	return nil
+	return p.session.Close()
+}
+
+func (p *Peer) startSendLoop() {
+	go func() {
+		for {
+			select {
+			case m := <-p.sendQueue:
+				go p.sendMessage(m)
+			}
+		}
+	}()
+}
+
+func (p *Peer) sendMessage(m *Message) {
+
+}
+
+func (p *Peer) startRecieveLoop() {
+	go func() {
+		for {
+			incomingStream, err := p.session.Accept()
+			if err != nil {
+
+			}
+
+			go p.readMessage(incomingStream)
+		}
+	}()
+}
+
+func (p *Peer) readMessage(conn net.Conn) {
+	// TODO: Parse the message from the conn then close the stream
+
+	m := &Message{}
+
+	go func() { p.recieveChan <- m }()
 }
