@@ -1,8 +1,12 @@
 package network
 
 import (
+	"bufio"
+	"encoding/binary"
+	"encoding/json"
 	"net"
 
+	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
 	"github.com/hashicorp/yamux"
 )
@@ -21,23 +25,24 @@ type Peer struct {
 
 	// The internal channel we write to to send a new message
 	// to the remote
-	sendQueue chan *Message
+	sendQueue chan *message.Message
 
 	// The channel of incoming messages
-	recieveChan chan *Message
+	recieveChans [](chan *message.Message)
 
 	session *yamux.Session
 }
 
 // QueueMessage queues the specified message to be sent to the remote
-func (p *Peer) QueueMessage(m *Message) {
+func (p *Peer) QueueMessage(m *message.Message) {
 	go func() { p.sendQueue <- m }()
 }
 
-// IncomingMessages returns a channel of every message recieved from
-// the remote peer
-func (p *Peer) IncomingMessages() chan *Message {
-	return p.recieveChan
+// IncomingMessages registers a new listen channel and returns it
+func (p *Peer) IncomingMessages() chan *message.Message {
+	r := make(chan *message.Message)
+	p.recieveChans = append(p.recieveChans, r)
+	return r
 }
 
 // CreateSession takes an incoming connection and creates a session from
@@ -69,15 +74,31 @@ func (p *Peer) startSendLoop() {
 	}()
 }
 
-func (p *Peer) sendMessage(m *Message) {
+func (p *Peer) sendMessage(m *message.Message) {
 	stream, err := p.session.Open()
 	if err != nil {
 		// TODO: Log error
+		return
 	}
 
-	messageBytes := []byte{}
+	messageBytes, err := json.Marshal(m)
+	if err != nil {
+		// TODO: Log error
+		return
+	}
 
-	stream.Write(messageBytes)
+	buffer := make([]byte, 4)
+	binary.BigEndian.PutUint32(buffer, uint32(len(messageBytes)))
+
+	buffer = append(buffer, messageBytes...)
+
+	bw := bufio.NewWriter(stream)
+
+	_, err = bw.Write(messageBytes)
+	if err != nil {
+		// TODO: Log error
+		return
+	}
 }
 
 func (p *Peer) startRecieveLoop() {
@@ -94,9 +115,50 @@ func (p *Peer) startRecieveLoop() {
 }
 
 func (p *Peer) readMessage(conn net.Conn) {
-	// TODO: Parse the message from the conn then close the stream
+	var err error
+	buffer := make([]byte, 4)
 
-	m := &Message{}
+	// Read the message size header
+	n, numBytesRead := 0, 0
+	for numBytesRead < 4 {
+		n, err = conn.Read(buffer)
+		if err != nil {
+			// TODO: Log error
+			return
+		}
+		numBytesRead += n
+	}
+	// Convert it into an int
+	size := binary.BigEndian.Uint32(buffer)
 
-	go func() { p.recieveChan <- m }()
+	if size == 0 {
+		return
+	}
+
+	// Allocate the message size
+	buffer = make([]byte, size)
+
+	// Read into the buffer
+	n, numBytesRead = 0, 0
+	for numBytesRead < int(size) {
+		n, err = conn.Read(buffer[numBytesRead:]) // Make sure we don't write over anthing
+		if err != nil {
+			// TODO: Log error
+			return
+		}
+		numBytesRead += n
+	}
+
+	// Unmarshal the message
+	m := &message.Message{}
+	err = json.Unmarshal(buffer, m)
+	if err != nil {
+		// TODO: Log error
+		return
+	}
+
+	// Send off our message into the recieve chans
+	for _, rchan := range p.recieveChans {
+		go func(c chan *message.Message) { c <- m }(rchan)
+	}
 }

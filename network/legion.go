@@ -9,7 +9,9 @@ import (
 
 	"github.com/gladiusio/legion/network/config"
 	"github.com/gladiusio/legion/network/events"
+	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
+
 	multierror "github.com/hashicorp/go-multierror"
 )
 
@@ -48,7 +50,7 @@ type Legion struct {
 
 // Broadcast sends the message to all writeable peers, unless a
 // specified list of peers is provided
-func (l *Legion) Broadcast(message *Message, addresses ...utils.LegionAddress) {
+func (l *Legion) Broadcast(message *message.Message, addresses ...utils.LegionAddress) {
 	// Wait until we're listening
 	l.Started()
 
@@ -70,7 +72,7 @@ func (l *Legion) Broadcast(message *Message, addresses ...utils.LegionAddress) {
 }
 
 // BroadcastRandom broadcasts a message to N random promoted peers
-func (l *Legion) BroadcastRandom(message *Message, n int) {
+func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 	// Wait until we're listening
 	l.Started()
 
@@ -199,7 +201,7 @@ func (l *Legion) Started() {
 
 // FireMessageEvent fires a new message event and sends context to the correct plugin
 // methods based on the event type
-func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *Message) {
+func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *message.Message) {
 	go func() {
 		messageContext := &MessageContext{} // Create some context for our plugin
 		for _, p := range l.plugins {
