@@ -1,7 +1,6 @@
 package network
 
 import (
-	"bufio"
 	"net"
 
 	"github.com/gladiusio/legion/utils"
@@ -27,7 +26,7 @@ type Peer struct {
 	// The channel of incoming messages
 	recieveChan chan *Message
 
-	rw *bufio.ReadWriter
+	session *yamux.Session
 }
 
 // QueueMessage queues the specified message to be sent to the remote
@@ -41,32 +40,8 @@ func (p *Peer) IncomingMessages() chan *Message {
 	return p.recieveChan
 }
 
-// OpenStream dials the remote and opens a stream to the peer
-func (p *Peer) OpenStream() error {
-	// Get a TCP connection
-	conn, err := net.Dial("tcp", p.remote.String())
-	if err != nil {
-		return err
-	}
-
-	// Setup client side of yamux
-	session, err := yamux.Client(conn, nil)
-	if err != nil {
-		return err
-	}
-
-	// Open a new stream
-	stream, err := session.Open()
-	if err != nil {
-		return err
-	}
-
-	p.rw = bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
-	return nil
-}
-
-// RecieveStream takes an incoming connection and creates a stream from it
-func (p *Peer) RecieveStream(conn net.Conn) error {
+// RecieveConnection takes an incoming connection and creates a session from
+func (p *Peer) CreateSession(conn net.Conn) error {
 	// Setup server side of yamux
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
@@ -79,7 +54,8 @@ func (p *Peer) RecieveStream(conn net.Conn) error {
 		return err
 	}
 
-	p.rw = bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+	// Store this session so we can open streams and write messages to it
+	p.session = session
 	return nil
 }
 

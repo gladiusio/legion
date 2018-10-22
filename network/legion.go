@@ -49,6 +49,9 @@ type Legion struct {
 // Broadcast sends the message to all writeable peers, unless a
 // specified list of peers is provided
 func (l *Legion) Broadcast(message *Message, addresses ...utils.LegionAddress) {
+	// Wait until we're listening
+	l.Started()
+
 	// Send to all promoted peers
 	if len(addresses) == 0 {
 		l.promotedPeers.Range(func(k, v interface{}) bool { v.(*Peer).QueueMessage(message); return true })
@@ -61,12 +64,16 @@ func (l *Legion) Broadcast(message *Message, addresses ...utils.LegionAddress) {
 			p.(*Peer).QueueMessage(message)
 		} else {
 			l.AddPeer(address)
+			// TODO: Broadcast to that peer
 		}
 	}
 }
 
 // BroadcastRandom broadcasts a message to N random promoted peers
 func (l *Legion) BroadcastRandom(message *Message, n int) {
+	// Wait until we're listening
+	l.Started()
+
 	// sync.Map doesn't store length, so we get n random like this
 	addrs := make([]utils.LegionAddress, 0, 100)
 	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.LegionAddress)); return true })
@@ -89,13 +96,12 @@ func (l *Legion) BroadcastRandom(message *Message, n int) {
 func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
-		p := NewPeer(address)
-		err := p.OpenStream()
+		p, err := l.createAndDialPeer(address)
 		if err != nil {
 			result = multierror.Append(result, err)
 			continue
 		}
-		l.allPeers.Store(address, p)
+		l.storePeer(p)
 		l.addMessageListener(p)
 	}
 	return result.ErrorOrNil()
@@ -111,14 +117,13 @@ func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 			l.promotedPeers.Store(address, p.(*Peer))
 			l.FirePeerEvent(events.PeerPromotionEvent, p.(*Peer))
 		} else { // If not we create a new peer and dial it
-			p := NewPeer(address)
-			err := p.OpenStream()
+			p, err := l.createAndDialPeer(address)
 			if err != nil {
 				result = multierror.Append(result, err)
 				continue
 			}
-			l.allPeers.Store(address, p)
-			l.promotedPeers.Store(address, p)
+			l.storePeer(p)
+			l.storePromotedPeer(p)
 			l.FirePeerEvent(events.PeerPromotionEvent, p)
 		}
 	}
@@ -248,6 +253,30 @@ func (l *Legion) addMessageListener(p *Peer) {
 	}()
 }
 
+func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
+	p := NewPeer(address)
+
+	conn, err := net.Dial("tcp", p.remote.String())
+	if err != nil {
+		return nil, err
+	}
+
+	err = p.CreateSession(conn)
+	if err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+func (l *Legion) storePeer(p *Peer) {
+	l.allPeers.Store(p.remote, p)
+}
+
+func (l *Legion) storePromotedPeer(p *Peer) {
+	l.promotedPeers.Store(p.remote, p)
+}
+
 func (l *Legion) handlNewConnection(conn net.Conn) {
 	// Create a new peer (kinda hacky rn, should have some control message to get
 	// the dialable address of the remote, so we don't dial them and open another
@@ -255,10 +284,11 @@ func (l *Legion) handlNewConnection(conn net.Conn) {
 	addrString := conn.RemoteAddr().String()
 	address := utils.FromString(addrString)
 	p := NewPeer(address)
-	err := p.RecieveStream(conn)
+	err := p.CreateSession(conn)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
-	l.allPeers.Store(address, p)
+	l.storePeer(p)
 	l.addMessageListener(p)
 }
