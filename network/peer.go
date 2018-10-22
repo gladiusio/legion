@@ -70,7 +70,14 @@ func (p *Peer) startSendLoop() {
 }
 
 func (p *Peer) sendMessage(m *Message) {
+	stream, err := p.session.Open()
+	if err != nil {
+		// TODO: Log error
+	}
 
+	messageBytes := []byte{}
+
+	stream.Write(messageBytes)
 }
 
 func (p *Peer) startRecieveLoop() {
@@ -78,7 +85,7 @@ func (p *Peer) startRecieveLoop() {
 		for {
 			incomingStream, err := p.session.Accept()
 			if err != nil {
-
+				// TODO: Log error
 			}
 
 			go p.readMessage(incomingStream)
