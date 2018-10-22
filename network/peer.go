@@ -40,16 +40,10 @@ func (p *Peer) IncomingMessages() chan *Message {
 	return p.recieveChan
 }
 
-// RecieveConnection takes an incoming connection and creates a session from
+// CreateSession takes an incoming connection and creates a session from
 func (p *Peer) CreateSession(conn net.Conn) error {
 	// Setup server side of yamux
 	session, err := yamux.Server(conn, nil)
-	if err != nil {
-		return err
-	}
-
-	// Accept a stream
-	stream, err := session.Accept()
 	if err != nil {
 		return err
 	}
