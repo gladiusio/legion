@@ -28,7 +28,7 @@ type Peer struct {
 	sendQueue chan *message.Message
 
 	// The channel of incoming messages
-	recieveChans [](chan *message.Message)
+	receiveChans [](chan *message.Message)
 
 	session *yamux.Session
 }
@@ -41,7 +41,7 @@ func (p *Peer) QueueMessage(m *message.Message) {
 // IncomingMessages registers a new listen channel and returns it
 func (p *Peer) IncomingMessages() chan *message.Message {
 	r := make(chan *message.Message)
-	p.recieveChans = append(p.recieveChans, r)
+	p.receiveChans = append(p.receiveChans, r)
 	return r
 }
 
@@ -158,7 +158,7 @@ func (p *Peer) readMessage(conn net.Conn) {
 	}
 
 	// Send off our message into the recieve chans
-	for _, rchan := range p.recieveChans {
+	for _, rchan := range p.receiveChans {
 		go func(c chan *message.Message) { c <- m }(rchan)
 	}
 

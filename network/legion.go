@@ -30,7 +30,7 @@ func NewLegion(conf *config.LegionConfig) *Legion {
 type Legion struct {
 	// These peers are written to by the broadcast and broadcast random (when a peer list isn't provided).
 	// They are generally considered safe to write and read to, and have been explicitly
-	// protmoted by calling PromotePeer(address)
+	// promoted by calling PromotePeer(address)
 	promotedPeers *sync.Map
 
 	// This is the initial state of a peer when it is added, it allows communication
@@ -44,7 +44,7 @@ type Legion struct {
 	// Our config type
 	config *config.LegionConfig
 
-	// started is a channel that blocks unti Listen() completes
+	// started is a channel that blocks until Listen() completes
 	started chan struct{}
 }
 
@@ -79,6 +79,11 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 	// sync.Map doesn't store length, so we get n random like this
 	addrs := make([]utils.LegionAddress, 0, 100)
 	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.LegionAddress)); return true })
+
+	if n > len(addrs) {
+		l.Broadcast(message)
+		return
+	}
 
 	// addrs contains all peers addresses now, lets select N random
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -135,14 +140,21 @@ func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 // DeletePeer closes all connections to a peer(s) and removes it from all peer lists.
 // Returns an error if there is an error closing one or more peers. No matter the
 // error, there will be an attempt to close all peers.
-func (l *Legion) DeletePeer(addresses ...utils.LegionAddress) {
+func (l *Legion) DeletePeer(addresses ...utils.LegionAddress) error {
+	var result *multierror.Error
+
 	for _, address := range addresses {
 		if p, ok := l.allPeers.Load(address); ok {
-			p.(*Peer).Close()
+			err := p.(*Peer).Close()
+			if err != nil {
+				result = multierror.Append(result, err)
+			}
 			l.allPeers.Delete(address)
 			l.promotedPeers.Delete(address)
 		}
 	}
+
+	return result.ErrorOrNil()
 }
 
 // PeerExists returns whether or not a peer has been connected to previously
@@ -164,7 +176,7 @@ func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
 	}
 }
 
-// Listen will listen on the configured address for incomming connections, it will
+// Listen will listen on the configured address for incoming connections, it will
 // also wait for all plugin's Startup() methods to return before binding.
 func (l *Legion) Listen() error {
 	// Setup start and stop calls on our plugin list
@@ -186,11 +198,11 @@ func (l *Legion) Listen() error {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			return err
+			continue
 		}
 
 		// Handle the incoming connection and create a peer
-		go l.handlNewConnection(conn)
+		go l.handleNewConnection(conn)
 	}
 }
 
@@ -279,7 +291,7 @@ func (l *Legion) storePromotedPeer(p *Peer) {
 	l.promotedPeers.Store(p.remote, p)
 }
 
-func (l *Legion) handlNewConnection(conn net.Conn) {
+func (l *Legion) handleNewConnection(conn net.Conn) {
 	// Create a new peer (kinda hacky rn, should have some control message to get
 	// the dialable address of the remote, so we don't dial them and open another
 	// stream )
