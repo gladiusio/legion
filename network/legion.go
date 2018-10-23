@@ -277,6 +277,7 @@ func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
 
 	err = p.CreateSession(conn)
 	if err != nil {
+		conn.Close()
 		return nil, err
 	}
 
@@ -300,6 +301,7 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	p := NewPeer(address)
 	err := p.CreateSession(conn)
 	if err != nil {
+		conn.Close()
 		fmt.Println(err)
 		return
 	}
