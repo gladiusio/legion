@@ -215,7 +215,7 @@ func (l *Legion) Started() {
 // methods based on the event type
 func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *message.Message) {
 	go func() {
-		messageContext := &MessageContext{} // Create some context for our plugin
+		messageContext := &MessageContext{Legion: l, Message: message} // Create some context for our plugin
 		for _, p := range l.plugins {
 			if eventType == events.NewMessageEvent {
 				go p.NewMessage(messageContext)

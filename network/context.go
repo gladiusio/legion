@@ -6,7 +6,7 @@ import "github.com/gladiusio/legion/network/message"
 // and methods to interact with the remote peer that sent the message
 type MessageContext struct {
 	Message *message.Message
-	Legion  Legion
+	Legion  *Legion
 }
 
 // Reply is a helper method to reply to an incoming message
