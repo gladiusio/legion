@@ -46,6 +46,9 @@ type Legion struct {
 
 	// started is a channel that blocks until Listen() completes
 	started chan struct{}
+
+	// listener is the network listener that legion listens for new connections on
+	listener net.Listener
 }
 
 // Broadcast sends the message to all writeable peers, unless a
@@ -183,7 +186,9 @@ func (l *Legion) Listen() error {
 	l.FireNetworkEvent(events.StartupEvent)
 	defer l.FireNetworkEvent(events.CloseEvent)
 
-	listener, err := net.Listen("tcp", l.config.BindAddress.String())
+	var err error
+
+	l.listener, err = net.Listen("tcp", l.config.BindAddress.String())
 	if err != nil {
 		return err
 	}
@@ -196,7 +201,7 @@ func (l *Legion) Listen() error {
 
 	// Accept incoming TCP connections
 	for {
-		conn, err := listener.Accept()
+		conn, err := l.listener.Accept()
 		if err != nil {
 			continue
 		}
@@ -204,6 +209,12 @@ func (l *Legion) Listen() error {
 		// Handle the incoming connection and create a peer
 		go l.handleNewConnection(conn)
 	}
+}
+
+// Stop closes the listener and fires the plugin stop event
+func (l *Legion) Stop() error {
+	defer l.FireNetworkEvent(events.CloseEvent)
+	return l.listener.Close()
 }
 
 // Started blocks until the network is running
