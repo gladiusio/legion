@@ -2,6 +2,7 @@ package network
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -185,8 +186,50 @@ func TestBroadcast(t *testing.T) {
 	}
 }
 
-func TestBroadcastRandom(t *testing.T) {
+func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
+	lg := newLegionGroup(10)
+	lg.waitUntilStarted()
 
+	lg.connect()
+	defer lg.stop()
+
+	var count uint64
+	p := &MessagePlugin{callback: func() { atomic.AddUint64(&count, 1) }}
+	for _, leg := range lg.legions {
+		lg.legions[0].PromotePeer(leg.config.BindAddress)
+		leg.RegisterPlugin(p)
+	}
+
+	lg.legions[0].BroadcastRandom(&message.Message{}, 11)
+
+	time.Sleep(100 * time.Millisecond)
+
+	if count != 10 {
+		t.Errorf("random broadcast was not sent to all peers, should have been 10, was: %d", count)
+	}
+}
+
+func TestBroadcastRandom(t *testing.T) {
+	lg := newLegionGroup(10)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
+
+	var count uint64
+	p := &MessagePlugin{callback: func() { atomic.AddUint64(&count, 1) }}
+	for _, leg := range lg.legions {
+		lg.legions[0].PromotePeer(leg.config.BindAddress)
+		leg.RegisterPlugin(p)
+	}
+
+	lg.legions[0].BroadcastRandom(&message.Message{}, 5)
+
+	time.Sleep(100 * time.Millisecond)
+
+	if count != 5 {
+		t.Errorf("random broadcast was not sent to all peers, should have been 5, was: %d", count)
+	}
 }
 
 func TestSelfDial(t *testing.T) {
