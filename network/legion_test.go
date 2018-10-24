@@ -81,7 +81,13 @@ func TestPeerConnection(t *testing.T) {
 	peerCount := 0
 	l1.allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
-		t.Errorf("number of peers is incorrect, there should have been 1, there were: %d", peerCount)
+		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
+	}
+
+	peerCount = 0
+	l2.allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	if peerCount != 1 {
+		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 
 }
