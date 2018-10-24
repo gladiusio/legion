@@ -74,7 +74,10 @@ func TestPeerConnection(t *testing.T) {
 	l1.Started()
 	l2.Started()
 
-	l1.AddPeer(l2.config.BindAddress)
+	err := l1.AddPeer(l2.config.BindAddress)
+	if err != nil {
+		t.Error(err)
+	}
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -89,5 +92,8 @@ func TestPeerConnection(t *testing.T) {
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
+}
+
+func TestBroadcast(t *testing.T) {
 
 }
