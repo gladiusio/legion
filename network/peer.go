@@ -14,7 +14,13 @@ import (
 // NewPeer returns a new peer from the given remote. It also
 // sets up the reading and writing channels
 func NewPeer(remote utils.LegionAddress) *Peer {
-	return &Peer{remote: remote}
+	p := &Peer{
+		remote:       remote,
+		sendQueue:    make(chan *message.Message),
+		receiveChans: make([](chan (*message.Message)), 0, 1),
+	}
+
+	return p
 }
 
 // Peer is an type that allows easy communication with
@@ -55,6 +61,10 @@ func (p *Peer) CreateSession(conn net.Conn) error {
 
 	// Store this session so we can open streams and write messages to it
 	p.session = session
+
+	p.startSendLoop()
+	p.startRecieveLoop()
+
 	return nil
 }
 
@@ -93,12 +103,12 @@ func (p *Peer) sendMessage(m *message.Message) {
 	buffer = append(buffer, messageBytes...)
 
 	bw := bufio.NewWriter(stream)
-
-	_, err = bw.Write(messageBytes)
+	_, err = bw.Write(buffer)
 	if err != nil {
 		// TODO: Log error
 		return
 	}
+	bw.Flush()
 }
 
 func (p *Peer) startRecieveLoop() {
@@ -126,11 +136,11 @@ func (p *Peer) readMessage(conn net.Conn) {
 			// TODO: Log error
 			return
 		}
+
 		numBytesRead += n
 	}
 	// Convert it into an int
 	size := binary.BigEndian.Uint32(buffer)
-
 	if size == 0 {
 		return
 	}
