@@ -66,7 +66,7 @@ func (l *Legion) Broadcast(message *message.Message, addresses ...utils.LegionAd
 			p.(*Peer).QueueMessage(message)
 		} else {
 			l.AddPeer(address)
-			// TODO: Broadcast to that peer
+
 		}
 	}
 }
