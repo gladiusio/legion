@@ -225,7 +225,7 @@ func TestBroadcastRandom(t *testing.T) {
 
 	lg.legions[0].BroadcastRandom(&message.Message{}, 5)
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	if count != 5 {
 		t.Errorf("random broadcast was not sent to all peers, should have been 5, was: %d", count)
