@@ -1,6 +1,7 @@
 package network
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -64,36 +65,134 @@ func TestFireMessageEvent(t *testing.T) {
 	}
 }
 
-func TestPeerConnection(t *testing.T) {
-	l1 := NewLegion(makeConfig(6000))
-	l2 := NewLegion(makeConfig(6001))
+func newLegionGroup(n int) *legionGroup {
+	l := &legionGroup{legions: make([]*Legion, n)}
+	l.makeLegions(n)
+	return l
+}
 
-	go l1.Listen()
-	go l2.Listen()
+type legionGroup struct {
+	legions []*Legion
+}
 
-	l1.Started()
-	l2.Started()
-
-	err := l1.AddPeer(l2.config.BindAddress)
-	if err != nil {
-		t.Error(err)
+func (lg *legionGroup) makeLegions(n int) {
+	legions := make([]*Legion, 0)
+	for i := 0; i < n; i++ {
+		l := NewLegion(makeConfig(6000 + uint16(i)))
+		go func() {
+			err := l.Listen()
+			if err != nil {
+				panic(err)
+			}
+		}()
+		legions = append(legions, l)
 	}
+
+	lg.legions = legions
+}
+
+func (lg *legionGroup) connect() {
+	for i := 1; i < len(lg.legions); i++ {
+		err := lg.legions[0].AddPeer(lg.legions[i].config.BindAddress)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func (lg *legionGroup) waitUntilStarted() {
+	var wg sync.WaitGroup
+	for _, leg := range lg.legions {
+		wg.Add(1)
+		go func(l *Legion) {
+			l.Started()
+			wg.Done()
+		}(leg)
+	}
+
+	wg.Wait()
+}
+
+func (lg *legionGroup) stop() {
+	for _, leg := range lg.legions {
+		err := leg.Stop()
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func TestPeerConnection(t *testing.T) {
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
 
 	time.Sleep(100 * time.Millisecond)
 
 	peerCount := 0
-	l1.allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 
 	peerCount = 0
-	l2.allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 }
 
+func TestPromotePeer(t *testing.T) {
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	lg.legions[0].PromotePeer(lg.legions[1].config.BindAddress)
+
+	peerCount := 0
+	lg.legions[0].promotedPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	if peerCount != 1 {
+		t.Errorf("promoted number of peers is incorrect, there should have been 1, there were: %d", peerCount)
+	}
+}
+
 func TestBroadcast(t *testing.T) {
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
+
+	failed := true
+	p := &MessagePlugin{callback: func() { failed = false }}
+	lg.legions[1].RegisterPlugin(p)
+
+	lg.legions[0].PromotePeer(lg.legions[1].config.BindAddress)
+	time.Sleep(100 * time.Millisecond)
+
+	lg.legions[0].Broadcast(&message.Message{})
+
+	time.Sleep(200 * time.Millisecond)
+
+	if failed {
+		t.Error("peer never recieved message")
+	}
+}
+
+func TestBroadcastRandom(t *testing.T) {
+
+}
+
+func TestSelfDial(t *testing.T) {
+
+}
+
+func TestSingleConnectionOpened(t *testing.T) {
 
 }
