@@ -77,7 +77,7 @@ type legionGroup struct {
 }
 
 func (lg *legionGroup) makeLegions(n int) {
-	legions := make([]*Legion, 0)
+	legions := make([]*Legion, 0, n)
 	for i := 0; i < n; i++ {
 		l := NewLegion(makeConfig(6000 + uint16(i)))
 		go func() {
@@ -161,6 +161,12 @@ func TestPromotePeer(t *testing.T) {
 	if peerCount != 1 {
 		t.Errorf("promoted number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
+
+	peerCount = 0
+	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	if peerCount != 1 {
+		t.Errorf("number of total peers is incorrect, there should have been 1, there were: %d", peerCount)
+	}
 }
 
 func TestBroadcast(t *testing.T) {
@@ -195,7 +201,7 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 
 	var count uint64
 	p := &MessagePlugin{callback: func() { atomic.AddUint64(&count, 1) }}
-	for _, leg := range lg.legions {
+	for _, leg := range lg.legions[1:] {
 		lg.legions[0].PromotePeer(leg.config.BindAddress)
 		leg.RegisterPlugin(p)
 	}
@@ -204,8 +210,8 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	if count != 10 {
-		t.Errorf("random broadcast was not sent to all peers, should have been 10, was: %d", count)
+	if count != 9 {
+		t.Errorf("random broadcast was not sent to all peers, should have been 9, was: %d", count)
 	}
 }
 
@@ -218,7 +224,7 @@ func TestBroadcastRandom(t *testing.T) {
 
 	var count uint64
 	p := &MessagePlugin{callback: func() { atomic.AddUint64(&count, 1) }}
-	for _, leg := range lg.legions {
+	for _, leg := range lg.legions[1:] {
 		lg.legions[0].PromotePeer(leg.config.BindAddress)
 		leg.RegisterPlugin(p)
 	}
