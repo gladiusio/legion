@@ -17,7 +17,7 @@ func New(sender utils.LegionAddress, messageType string, body, checksum []byte, 
 }
 
 // Message is the message type that the network expects.
-// It is simple by design to allow for signifigant customization
+// It is simple by design to allow for significant customization
 // of the network and it's message processing.
 type Message struct {
 	Sender      utils.LegionAddress `json:"sender"`

@@ -167,7 +167,7 @@ func (p *Peer) readMessage(conn net.Conn) {
 		return
 	}
 
-	// Send off our message into the recieve chans
+	// Send off our message into the receive chans
 	for _, rchan := range p.receiveChans {
 		go func(c chan *message.Message) { c <- m }(rchan)
 	}

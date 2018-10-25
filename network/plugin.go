@@ -15,7 +15,7 @@ type PluginInterface interface {
 // to have all of the required methods
 type GenericPlugin struct{}
 
-// NewMessage is called when a message is recieve by the network
+// NewMessage is called when a message is received by the network
 func (*GenericPlugin) NewMessage(ctx *MessageContext) {}
 
 // PeerAdded is called when a peer is added to the network
