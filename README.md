@@ -1,5 +1,15 @@
 
-# Legion [![Build Status](https://travis-ci.com/gladiusio/legion.svg?branch=master)](https://travis-ci.com/gladiusio/legion) [![Report Card](https://goreportcard.com/badge/github.com/gladiusio/legion)](https://goreportcard.com/report/github.com/gladiusio/legion)
+<p align="center">
+  <img src="https://cdn.rawgit.com/awnumar/memguard/master/logo.svg" height="140" />
+  <h3 align="center">Legion</h3>
+  <p align="center">Fast, modular, and extensible peer to peer library in Go</p>
+  <p align="center">
+    <a href="https://travis-ci.com/gladiusio/legion"><img src="https://travis-ci.com/gladiusio/legion.svg?branch=master"></a>
+    <a href="https://goreportcard.com/report/github.com/gladiusio/legion"><img src="https://goreportcard.com/badge/github.com/gladiusio/legion"></a>
+  </p>
+</p>
+
+---
 
 Legion is an easy to use, fast, and bare-bones peer to peer library designed to leave most of the network characteristics up to the 
 user through a simple yet powerful plugin system. It was written because here at [Gladius](https://gladius.io) we needed a peer
