@@ -26,11 +26,13 @@ This should be considered a quick start guide, there are more examples in the
 [Gladius Network Gateway](https://github.com/gladiusio/gladius-network-gateway)
 
 ### Basic Usage
+TODO
 ```golang
 
 ```
 
 ### Messaging
+TODO
 ```golang
 
 ```
