@@ -1,7 +1,6 @@
 
 <p align="center">
-  <img src="https://cdn.rawgit.com/awnumar/memguard/master/logo.svg" height="140" />
-  <h3 align="center">Legion</h3>
+  <h2 align="center">Legion</h2>
   <p align="center">Fast, modular, and extensible peer to peer library in Go</p>
   <p align="center">
     <a href="https://travis-ci.com/gladiusio/legion"><img src="https://travis-ci.com/gladiusio/legion.svg?branch=master"></a>
