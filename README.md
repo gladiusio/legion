@@ -1,6 +1,6 @@
 
 <p align="center">
-  <h2 align="center">Legion</h2>
+  <h3 align="center">Legion</h3>
   <p align="center">Fast, modular, and extensible peer to peer library in Go</p>
   <p align="center">
     <a href="https://travis-ci.com/gladiusio/legion"><img src="https://travis-ci.com/gladiusio/legion.svg?branch=master"></a>
