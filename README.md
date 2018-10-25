@@ -53,7 +53,7 @@ in your struct, like this:
 
 ```go
 type MyPlugin struct {
-	GenericPlugin
+	network.GenericPlugin
 	specialData string
 }
 
