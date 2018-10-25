@@ -1,5 +1,5 @@
 
-# Gladius Legion [![Build Status](https://travis-ci.com/gladiusio/legion.svg?branch=master)](https://travis-ci.com/gladiusio/legion)[![Report Card](https://goreportcard.com/badge/github.com/gladiusio/legion)](https://goreportcard.com/report/github.com/gladiusio/legion)
+# Gladius Legion [![Build Status](https://travis-ci.com/gladiusio/legion.svg?branch=master)](https://travis-ci.com/gladiusio/legion) [![Report Card](https://goreportcard.com/badge/github.com/gladiusio/legion)](https://goreportcard.com/report/github.com/gladiusio/legion)
 
 Legion is an easy to use, fast, and barebones peer to peer library designed to leave most of the network characterisics up to the 
 user through a simple yet powerful plugin system. It was written because here at [Gladius](https://gladius.io) we needed a peer
