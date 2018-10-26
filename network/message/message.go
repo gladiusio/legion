@@ -19,28 +19,28 @@ type Message struct {
 
 // Sender returns the sender address
 func (m *Message) Sender() utils.LegionAddress {
-
+	return utils.LegionAddress{}
 }
 
 // Type gets the message type
 func (m *Message) Type() string {
-
+	return ""
 }
 
 // Body returns arbitrary body bytes, could be another flatbuffer
 func (m *Message) Body() []byte {
-
+	return []byte{}
 }
 
 // Checksum returns the message checksum
 func (m *Message) Checksum() []byte {
-
+	return []byte{}
 }
 
 // Data returns data that is needed outside the body,
 // for example details about compression of the body
 func (m *Message) Data() []byte {
-
+	return []byte{}
 }
 
 // Marshal marshals the data as a byte array
