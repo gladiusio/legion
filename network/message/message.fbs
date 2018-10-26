@@ -1,0 +1,17 @@
+// myschema.fbs
+namespace flatb;
+
+table SenderAddress {
+ Host:string;
+ Port:ushort;
+}
+
+table Message {
+  Sender:SenderAddress;
+  Type:string;
+  Body:[byte];
+  Checksum:[byte];
+  Data:[byte];
+}
+
+root_type Message;
