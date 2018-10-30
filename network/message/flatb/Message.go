@@ -26,15 +26,10 @@ func (rcv *Message) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *Message) Sender(obj *SenderAddress) *SenderAddress {
+func (rcv *Message) Sender() []byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
-		x := rcv._tab.Indirect(o + rcv._tab.Pos)
-		if obj == nil {
-			obj = new(SenderAddress)
-		}
-		obj.Init(rcv._tab.Bytes, x)
-		return obj
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
 	}
 	return nil
 }
@@ -47,11 +42,11 @@ func (rcv *Message) Type() []byte {
 	return nil
 }
 
-func (rcv *Message) Body(j int) int8 {
+func (rcv *Message) Body(j int) byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
 		a := rcv._tab.Vector(o)
-		return rcv._tab.GetInt8(a + flatbuffers.UOffsetT(j*1))
+		return rcv._tab.GetByte(a + flatbuffers.UOffsetT(j*1))
 	}
 	return 0
 }
@@ -64,25 +59,16 @@ func (rcv *Message) BodyLength() int {
 	return 0
 }
 
-func (rcv *Message) Checksum(j int) int8 {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
+func (rcv *Message) BodyBytes() []byte {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(8))
 	if o != 0 {
-		a := rcv._tab.Vector(o)
-		return rcv._tab.GetInt8(a + flatbuffers.UOffsetT(j*1))
+		return rcv._tab.ByteVector(o + rcv._tab.Pos)
 	}
-	return 0
-}
-
-func (rcv *Message) ChecksumLength() int {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
-	if o != 0 {
-		return rcv._tab.VectorLen(o)
-	}
-	return 0
+	return nil
 }
 
 func MessageStart(builder *flatbuffers.Builder) {
-	builder.StartObject(4)
+	builder.StartObject(3)
 }
 func MessageAddSender(builder *flatbuffers.Builder, Sender flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(0, flatbuffers.UOffsetT(Sender), 0)
@@ -94,12 +80,6 @@ func MessageAddBody(builder *flatbuffers.Builder, Body flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(2, flatbuffers.UOffsetT(Body), 0)
 }
 func MessageStartBodyVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
-	return builder.StartVector(1, numElems, 1)
-}
-func MessageAddChecksum(builder *flatbuffers.Builder, Checksum flatbuffers.UOffsetT) {
-	builder.PrependUOffsetTSlot(3, flatbuffers.UOffsetT(Checksum), 0)
-}
-func MessageStartChecksumVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
 	return builder.StartVector(1, numElems, 1)
 }
 func MessageEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {

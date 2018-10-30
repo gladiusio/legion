@@ -1,8 +1,10 @@
 package message
 
 import (
+	"errors"
 	"sync"
 
+	"github.com/gladiusio/legion/network/message/flatb"
 	"github.com/gladiusio/legion/utils"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
@@ -16,7 +18,11 @@ var builderPool = sync.Pool{
 
 // New returns a new Message with the specified fields
 func New(sender *utils.LegionAddress, messageType string, body []byte) *Message {
-	return &Message{}
+	return &Message{
+		sender:      sender,
+		messageType: messageType,
+		body:        body,
+	}
 }
 
 // Message is the message type that the network expects.
@@ -43,21 +49,43 @@ func (m *Message) Body() []byte {
 	return m.body
 }
 
-// Checksum returns the message checksum
-func (m *Message) Checksum() []byte {
-	return []byte{}
-}
-
 // Encode encodes the data as a byte array
 func (m *Message) Encode() []byte {
-	// Get a cached or new builder, then reset it. This is to limit allocations
-	b := builderPool.Get().(*flatbuffers.Builder)
+	b := builderPool.Get().(*flatbuffers.Builder) // Get a cached or new builder
+	defer builderPool.Put(b)                      // Return it to the pool when we're done
+
+	// Reset the builder
 	b.Reset()
 
-	return []byte{}
+	// Build our fields
+	body := b.CreateByteString(m.body)
+	sender := b.CreateString(m.sender.String())
+	messageType := b.CreateString(m.messageType)
+
+	// Set the fields
+	flatb.MessageStart(b)
+	flatb.MessageAddBody(b, body)
+	flatb.MessageAddSender(b, sender)
+	flatb.MessageAddType(b, messageType)
+
+	// End the message
+	end := flatb.MessageEnd(b)
+	b.Finish(end)
+
+	return b.FinishedBytes()
 }
 
-// UnMarshal populates the message wiht fields by unpacking the buffer
+// Decode populates the message with fields by unpacking the buffer
 func (m *Message) Decode(buf []byte) error {
+	decoded := flatb.GetRootAsMessage(buf, 0)
+
+	if decoded.BodyBytes() == nil || decoded.Sender() == nil || decoded.Type() == nil {
+		return errors.New("message: error unpacking buffer")
+	}
+
+	m.body = decoded.BodyBytes()
+	m.sender = utils.LegionAddressFromString(string(decoded.Sender()))
+	m.messageType = string(decoded.Type())
+
 	return nil
 }

@@ -13,7 +13,7 @@ import (
 
 // NewPeer returns a new peer from the given remote. It also
 // sets up the reading and writing channels
-func NewPeer(remote utils.LegionAddress) *Peer {
+func NewPeer(remote *utils.LegionAddress) *Peer {
 	p := &Peer{
 		remote:       remote,
 		sendQueue:    make(chan *message.Message),
@@ -27,7 +27,7 @@ func NewPeer(remote utils.LegionAddress) *Peer {
 // a remote peer
 type Peer struct {
 	// The remote Address to dial
-	remote utils.LegionAddress
+	remote *utils.LegionAddress
 
 	// The internal channel we write to to send a new message
 	// to the remote

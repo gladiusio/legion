@@ -1,16 +1,10 @@
-// myschema.fbs
+// message.fbs defines the message struct used by legion
 namespace flatb;
 
-table SenderAddress {
- Host:string;
- Port:ushort;
-}
-
 table Message {
-  Sender:SenderAddress;
+  Sender:string;
   Type:string;
-  Body:[byte];
-  Checksum:[byte];
+  Body:[ubyte];
 }
 
 root_type Message;
