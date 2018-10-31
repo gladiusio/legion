@@ -128,6 +128,9 @@ func (p *Peer) readMessage(conn net.Conn) {
 	var err error
 	buffer := make([]byte, 4)
 
+	// Close this message stream when we're done
+	defer conn.Close()
+
 	// Read the message size header
 	n, numBytesRead := 0, 0
 	for numBytesRead < 4 {
@@ -141,7 +144,7 @@ func (p *Peer) readMessage(conn net.Conn) {
 	}
 	// Convert it into an int
 	size := binary.BigEndian.Uint32(buffer)
-	if size == 0 {
+	if size == 0 || size > 1e+8 {
 		return
 	}
 
@@ -172,6 +175,4 @@ func (p *Peer) readMessage(conn net.Conn) {
 		go func(c chan *message.Message) { c <- m }(rchan)
 	}
 
-	// Close this message stream
-	conn.Close()
 }
