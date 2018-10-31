@@ -3,6 +3,7 @@
   <h3 align="center">Legion</h3>
   <p align="center">Fast, modular, and extensible peer to peer library in Go</p>
   <p align="center">
+    <a href="https://godoc.org/github.com/gladiusio/legion/"><img src="https://godoc.org/github.com/gladiusio/legion/network?status.svg"></a>
     <a href="https://travis-ci.com/gladiusio/legion"><img src="https://travis-ci.com/gladiusio/legion.svg?branch=master"></a>
     <a href="https://goreportcard.com/report/github.com/gladiusio/legion"><img src="https://goreportcard.com/badge/github.com/gladiusio/legion"></a>
   </p>
