@@ -11,7 +11,7 @@ type MessageContext struct {
 
 // Reply is a helper method to reply to an incoming message
 func (mc *MessageContext) Reply(msg *message.Message) {
-	mc.Legion.Broadcast(msg, msg.Sender)
+	mc.Legion.Broadcast(msg, msg.Sender())
 }
 
 // PeerContext has context for a peer event such as the legion object and

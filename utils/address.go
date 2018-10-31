@@ -6,17 +6,17 @@ import (
 )
 
 // NewLegionAddress returns a LegionAddress object
-func NewLegionAddress(host string, port uint16) LegionAddress {
+func NewLegionAddress(host string, port uint16) *LegionAddress {
 	host = resolveHost(host)
-	return LegionAddress{Host: host, Port: port}
+	return &LegionAddress{Host: host, Port: port}
 }
 
-// FromString returns a LegionAddress from a string
-func FromString(addrString string) LegionAddress {
+// LegionAddressFromString returns a LegionAddress from a string
+func LegionAddressFromString(addrString string) *LegionAddress {
 	split := strings.Split(addrString, ":")
 	host := split[0]
 	port, _ := strconv.Atoi(split[1])
-	return LegionAddress{Host: host, Port: uint16(port)}
+	return &LegionAddress{Host: host, Port: uint16(port)}
 }
 
 //LegionAddress is a comparable type with a few convinience methods

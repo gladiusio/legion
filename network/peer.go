@@ -13,7 +13,7 @@ import (
 
 // NewPeer returns a new peer from the given remote. It also
 // sets up the reading and writing channels
-func NewPeer(remote utils.LegionAddress) *Peer {
+func NewPeer(remote *utils.LegionAddress) *Peer {
 	p := &Peer{
 		remote:       remote,
 		sendQueue:    make(chan *message.Message),
@@ -27,7 +27,7 @@ func NewPeer(remote utils.LegionAddress) *Peer {
 // a remote peer
 type Peer struct {
 	// The remote Address to dial
-	remote utils.LegionAddress
+	remote *utils.LegionAddress
 
 	// The internal channel we write to to send a new message
 	// to the remote
@@ -128,6 +128,9 @@ func (p *Peer) readMessage(conn net.Conn) {
 	var err error
 	buffer := make([]byte, 4)
 
+	// Close this message stream when we're done
+	defer conn.Close()
+
 	// Read the message size header
 	n, numBytesRead := 0, 0
 	for numBytesRead < 4 {
@@ -141,7 +144,7 @@ func (p *Peer) readMessage(conn net.Conn) {
 	}
 	// Convert it into an int
 	size := binary.BigEndian.Uint32(buffer)
-	if size == 0 {
+	if size == 0 || size > 1e+8 {
 		return
 	}
 
@@ -172,6 +175,4 @@ func (p *Peer) readMessage(conn net.Conn) {
 		go func(c chan *message.Message) { c <- m }(rchan)
 	}
 
-	// Close this message stream
-	conn.Close()
 }

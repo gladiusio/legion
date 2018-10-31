@@ -10,7 +10,7 @@ func main() {
 	l := legion.New(conf)
 	go l.Listen()
 	l.Started()
-	err := l.AddPeer(utils.FromString("localhost:7946"))
+	err := l.AddPeer(utils.LegionAddressFromString("localhost:7946"))
 	if err != nil {
 		panic(err)
 	}
