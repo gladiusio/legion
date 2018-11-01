@@ -110,6 +110,7 @@ func (l *Legion) AddPeer(addresses ...*utils.LegionAddress) error {
 	for _, address := range addresses {
 		p, err := l.createAndDialPeer(address)
 		if err != nil {
+			log.Warn("Error adding peer", "error", err)
 			result = multierror.Append(result, err)
 			continue
 		}
@@ -321,4 +322,6 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	}
 	l.storePeer(p)
 	l.addMessageListener(p)
+
+	log.Debug("Recieved new peer connection", "addr", address.String())
 }
