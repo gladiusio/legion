@@ -17,6 +17,11 @@ func Info(msg string, keyvals ...interface{}) {
 	internalLogger.Info(msg, keyvals...)
 }
 
+// Warn calls the warn method of the registered logger
+func Warn(msg string, keyvals ...interface{}) {
+	internalLogger.Warn(msg, keyvals...)
+}
+
 // Error calls the error method of the registered logger
 func Error(msg string, keyvals ...interface{}) {
 	internalLogger.Error(msg, keyvals...)

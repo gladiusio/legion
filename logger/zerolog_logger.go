@@ -32,7 +32,7 @@ func (zl *ZeroLogger) Debug(msg string, keyvals ...interface{}) {
 	addFields(zl.Logger.Debug(), keyvals...).Msg(msg)
 }
 
-//Info calls the info method of the registered logger
+// Info calls the info method of the registered logger
 func (zl *ZeroLogger) Info(msg string, keyvals ...interface{}) {
 	if !validateKeyvals(keyvals...) {
 		zl.Logger.Error().Str("info_message", msg).
@@ -41,6 +41,17 @@ func (zl *ZeroLogger) Info(msg string, keyvals ...interface{}) {
 	}
 
 	addFields(zl.Logger.Info(), keyvals...).Msg(msg)
+}
+
+// Warn calls the info method of the registered logger
+func (zl *ZeroLogger) Warn(msg string, keyvals ...interface{}) {
+	if !validateKeyvals(keyvals...) {
+		zl.Logger.Error().Str("warn_message", msg).
+			Msg("Warn logger function keyvals are not valid, may be missing context...")
+		return
+	}
+
+	addFields(zl.Logger.Warn(), keyvals...).Msg(msg)
 }
 
 // Error calls the error method of the registered logger
