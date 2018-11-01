@@ -21,38 +21,41 @@ type ZeroLogger struct {
 
 // Debug calls the debug method of the registered logger
 func (zl *ZeroLogger) Debug(msg string, keyvals ...interface{}) {
-	if !validateKeyvals(keyvals) {
+	if !validateKeyvals(keyvals...) {
 		zl.Logger.Error().Str("debug_message", msg).
 			Msg("Debug logger function keyvals are not valid, may be missing context...")
+		return
 	}
 
-	addFields(zl.Logger.Debug(), keyvals).Msg(msg)
+	addFields(zl.Logger.Debug(), keyvals...).Msg(msg)
 }
 
 //Info calls the info method of the registered logger
 func (zl *ZeroLogger) Info(msg string, keyvals ...interface{}) {
-	if !validateKeyvals(keyvals) {
+	if !validateKeyvals(keyvals...) {
 		zl.Logger.Error().Str("info_message", msg).
 			Msg("Info logger function keyvals are not valid, may be missing context...")
+		return
 	}
 
-	addFields(zl.Logger.Info(), keyvals).Msg(msg)
+	addFields(zl.Logger.Info(), keyvals...).Msg(msg)
 }
 
 // Error calls the error method of the registered logger
 func (zl *ZeroLogger) Error(msg string, keyvals ...interface{}) {
-	if !validateKeyvals(keyvals) {
+	if !validateKeyvals(keyvals...) {
 		zl.Logger.Error().Str("error_message", msg).
 			Msg("Error logger function keyvals are not valid, may be missing context...")
+		return
 	}
 
-	addFields(zl.Logger.Error(), keyvals).Msg(msg)
+	addFields(zl.Logger.Error(), keyvals...).Msg(msg)
 }
 
 // With calls the with method of the registered logger, and returns
 // a logger with those fields attached by default
 func (zl *ZeroLogger) With(keyvals ...interface{}) Generic {
-	if !validateKeyvals(keyvals) {
+	if !validateKeyvals(keyvals...) {
 		zl.Logger.Error().
 			Msg("Provided keyvals don't match correct pattern for With() method")
 		return zl
@@ -75,7 +78,7 @@ func addFields(e *zerolog.Event, keyvals ...interface{}) *zerolog.Event {
 }
 
 func validateKeyvals(keyvals ...interface{}) bool {
-	if len(keyvals)%2 != 0 {
+	if len(keyvals)%2 != 0 || len(keyvals) == 0 {
 		return false
 	}
 
