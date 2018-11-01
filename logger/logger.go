@@ -8,18 +8,18 @@ func SetLogger(newLogger Generic) {
 }
 
 // Debug calls the debug method of the registered logger
-func Debug(msg string, keyvals ...interface{}) error {
-	return internalLogger.Debug(msg, keyvals)
+func Debug(msg string, keyvals ...interface{}) {
+	internalLogger.Debug(msg, keyvals)
 }
 
 //Info calls the info method of the registered logger
-func Info(msg string, keyvals ...interface{}) error {
-	return internalLogger.Info(msg, keyvals)
+func Info(msg string, keyvals ...interface{}) {
+	internalLogger.Info(msg, keyvals)
 }
 
 // Error calls the error method of the registered logger
-func Error(msg string, keyvals ...interface{}) error {
-	return internalLogger.Error(msg, keyvals)
+func Error(msg string, keyvals ...interface{}) {
+	internalLogger.Error(msg, keyvals)
 }
 
 // With calls the with method of the registered logger, and returns
