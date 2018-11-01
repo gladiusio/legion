@@ -8,7 +8,9 @@ import (
 
 // NewZeroLogger returns a new ZeroLogger
 func NewZeroLogger() *ZeroLogger {
-	return &ZeroLogger{Logger: zerolog.New(os.Stderr).With().Timestamp().Logger()}
+	l := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	l = l.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	return &ZeroLogger{Logger: l}
 }
 
 // Compile time assertion that our logger meets the intferface specifications

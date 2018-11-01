@@ -12,6 +12,8 @@ import (
 	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
 
+	log "github.com/gladiusio/legion/logger"
+
 	multierror "github.com/hashicorp/go-multierror"
 )
 
@@ -197,6 +199,7 @@ func (l *Legion) Listen() error {
 	go func() {
 		time.Sleep(1 * time.Second)
 		close(l.started)
+		log.Debug("Listening on: "+l.config.BindAddress.String(), "addr", l.config.BindAddress.String())
 	}()
 
 	// Accept incoming TCP connections
