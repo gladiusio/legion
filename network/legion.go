@@ -200,7 +200,7 @@ func (l *Legion) Listen() error {
 	go func() {
 		time.Sleep(1 * time.Second)
 		close(l.started)
-		log.Debug().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
+		log.Info().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
 	}()
 
 	// Accept incoming TCP connections
