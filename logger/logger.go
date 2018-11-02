@@ -1,38 +1,38 @@
 package logger
 
-var internalLogger Generic = NewZeroLogger()
+var internalLogger GenericLogger = NewZeroLogger()
 
 // SetLogger sets the internal logger to the one provided
-func SetLogger(newLogger Generic) {
+func SetLogger(newLogger GenericLogger) {
 	internalLogger = newLogger
 }
 
-func GetLogger() Generic {
+func GetLogger() GenericLogger {
 	return internalLogger
 }
 
 // Debug calls the debug method of the registered logger
-func Debug(msg string, keyvals ...interface{}) {
-	internalLogger.Debug(msg, keyvals...)
+func Debug() GenericContext {
+	return internalLogger.Debug()
 }
 
 //Info calls the info method of the registered logger
-func Info(msg string, keyvals ...interface{}) {
-	internalLogger.Info(msg, keyvals...)
+func Info() GenericContext {
+	return internalLogger.Info()
 }
 
 // Warn calls the warn method of the registered logger
-func Warn(msg string, keyvals ...interface{}) {
-	internalLogger.Warn(msg, keyvals...)
+func Warn() GenericContext {
+	return internalLogger.Warn()
 }
 
 // Error calls the error method of the registered logger
-func Error(msg string, keyvals ...interface{}) {
-	internalLogger.Error(msg, keyvals...)
+func Error() GenericContext {
+	return internalLogger.Error()
 }
 
 // With calls the with method of the registered logger, and returns
 // a logger with those fields attached by default
-func With(keyvals ...interface{}) Generic {
-	return internalLogger.With(keyvals...)
+func With(gc GenericContext) GenericLogger {
+	return internalLogger.With(gc)
 }

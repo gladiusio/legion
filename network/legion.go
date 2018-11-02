@@ -110,7 +110,7 @@ func (l *Legion) AddPeer(addresses ...*utils.LegionAddress) error {
 	for _, address := range addresses {
 		p, err := l.createAndDialPeer(address)
 		if err != nil {
-			log.Warn("Error adding peer", "error", err)
+			log.Warn().Field("err", err).Log("Error adding peer")
 			result = multierror.Append(result, err)
 			continue
 		}
@@ -200,7 +200,7 @@ func (l *Legion) Listen() error {
 	go func() {
 		time.Sleep(1 * time.Second)
 		close(l.started)
-		log.Debug("Listening on: "+l.config.BindAddress.String(), "addr", l.config.BindAddress.String())
+		log.Debug().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
 	}()
 
 	// Accept incoming TCP connections
@@ -323,5 +323,5 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	l.storePeer(p)
 	l.addMessageListener(p)
 
-	log.Debug("Recieved new peer connection", "addr", address.String())
+	log.Debug().Field("addr", address.String()).Log("Recieved new peer connection")
 }

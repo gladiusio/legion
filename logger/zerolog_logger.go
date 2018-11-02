@@ -14,7 +14,28 @@ func NewZeroLogger() *ZeroLogger {
 }
 
 // Compile time assertion that our logger meets the intferface specifications
-var _ Generic = (*ZeroLogger)(nil)
+var _ GenericLogger = (*ZeroLogger)(nil)
+var _ GenericContext = (*ZeroLogContext)(nil)
+
+type field struct {
+	key string
+	val interface{}
+}
+
+type ZeroLogContext struct {
+	event  *zerolog.Event
+	fields []field
+}
+
+func (zlc *ZeroLogContext) Field(key string, val interface{}) GenericContext {
+	zlc.event = zlc.event.Interface(key, val)
+	zlc.fields = append(zlc.fields, field{key, val})
+	return zlc
+}
+
+func (zlc *ZeroLogContext) Log(msg string) {
+	zlc.event.Msg(msg)
+}
 
 // ZeroLogger is a wrapper around zerolog so it can implement our interface
 type ZeroLogger struct {
@@ -22,84 +43,30 @@ type ZeroLogger struct {
 }
 
 // Debug calls the debug method of the registered logger
-func (zl *ZeroLogger) Debug(msg string, keyvals ...interface{}) {
-	if !validateKeyvals(keyvals...) {
-		zl.Logger.Error().Str("debug_message", msg).
-			Msg("Debug logger function keyvals are not valid, may be missing context...")
-		return
-	}
-
-	addFields(zl.Logger.Debug(), keyvals...).Msg(msg)
+func (zl *ZeroLogger) Debug() GenericContext {
+	return &ZeroLogContext{event: zl.Logger.Debug(), fields: make([]field, 0)}
 }
 
 // Info calls the info method of the registered logger
-func (zl *ZeroLogger) Info(msg string, keyvals ...interface{}) {
-	if !validateKeyvals(keyvals...) {
-		zl.Logger.Error().Str("info_message", msg).
-			Msg("Info logger function keyvals are not valid, may be missing context...")
-		return
-	}
-
-	addFields(zl.Logger.Info(), keyvals...).Msg(msg)
+func (zl *ZeroLogger) Info() GenericContext {
+	return &ZeroLogContext{event: zl.Logger.Info(), fields: make([]field, 0)}
 }
 
 // Warn calls the warn method of the registered logger
-func (zl *ZeroLogger) Warn(msg string, keyvals ...interface{}) {
-	if !validateKeyvals(keyvals...) {
-		zl.Logger.Error().Str("warn_message", msg).
-			Msg("Warn logger function keyvals are not valid, may be missing context...")
-		return
-	}
-
-	addFields(zl.Logger.Warn(), keyvals...).Msg(msg)
+func (zl *ZeroLogger) Warn() GenericContext {
+	return &ZeroLogContext{event: zl.Logger.Warn(), fields: make([]field, 0)}
 }
 
 // Error calls the error method of the registered logger
-func (zl *ZeroLogger) Error(msg string, keyvals ...interface{}) {
-	if !validateKeyvals(keyvals...) {
-		zl.Logger.Error().Str("error_message", msg).
-			Msg("Error logger function keyvals are not valid, may be missing context...")
-		return
-	}
-
-	addFields(zl.Logger.Error(), keyvals...).Msg(msg)
+func (zl *ZeroLogger) Error() GenericContext {
+	return &ZeroLogContext{event: zl.Logger.Error(), fields: make([]field, 0)}
 }
 
-// With calls the with method of the registered logger, and returns
-// a logger with those fields attached by default
-func (zl *ZeroLogger) With(keyvals ...interface{}) Generic {
-	if !validateKeyvals(keyvals...) {
-		zl.Logger.Error().
-			Msg("Provided keyvals don't match correct pattern for With() method")
-		return zl
+// With appends the context to a new logger and returns it
+func (zl *ZeroLogger) With(gc GenericContext) GenericLogger {
+	ctx := zl.Logger.With()
+	for _, field := range gc.(*ZeroLogContext).fields {
+		ctx = ctx.Interface(field.key, field.val)
 	}
-
-	l := zl.Logger.With()
-	for i := 0; i < len(keyvals); i += 2 {
-		l = l.Interface(keyvals[i].(string), keyvals[i+1])
-	}
-
-	return &ZeroLogger{Logger: l.Logger()}
-}
-
-func addFields(e *zerolog.Event, keyvals ...interface{}) *zerolog.Event {
-	for i := 0; i < len(keyvals); i += 2 {
-		e = e.Interface(keyvals[i].(string), keyvals[i+1])
-	}
-
-	return e
-}
-
-func validateKeyvals(keyvals ...interface{}) bool {
-	if len(keyvals)%2 != 0 || len(keyvals) == 0 {
-		return false
-	}
-
-	for i := 0; i < len(keyvals); i += 2 {
-		if _, ok := keyvals[i].(string); !ok {
-			return false
-		}
-	}
-
-	return true
+	return &ZeroLogger{Logger: ctx.Logger()}
 }
