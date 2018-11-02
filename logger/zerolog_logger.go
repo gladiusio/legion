@@ -43,7 +43,7 @@ func (zl *ZeroLogger) Info(msg string, keyvals ...interface{}) {
 	addFields(zl.Logger.Info(), keyvals...).Msg(msg)
 }
 
-// Warn calls the info method of the registered logger
+// Warn calls the warn method of the registered logger
 func (zl *ZeroLogger) Warn(msg string, keyvals ...interface{}) {
 	if !validateKeyvals(keyvals...) {
 		zl.Logger.Error().Str("warn_message", msg).
