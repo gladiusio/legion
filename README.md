@@ -65,7 +65,13 @@ You can register a new logger by calling
 ```go
 logger.SetLogger(YourLogger)
 ```
-By default we use [zerolog](https://github.com/rs/zerolog), you can see our implemented logger [here](https://github.com/gladiusio/legion/blob/master/logger/zerolog_logger.go)
+By default we use [zerolog](https://github.com/rs/zerolog), you can see our implemented logger [here](https://github.com/gladiusio/legion/blob/master/logger/zerolog_logger.go).
+If you want to edit the underlying zerolog instance, you can call:
+
+```go
+l := logger.GetLogger() // Get the wrapper
+zerologger := l.(logger.ZeroLogger).Logger // Get the actual Zerolog instance (can change things like the formatting, output location, etc)
+```
 
 ### Plugins
 

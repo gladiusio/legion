@@ -7,6 +7,10 @@ func SetLogger(newLogger Generic) {
 	internalLogger = newLogger
 }
 
+func GetLogger() Generic {
+	return internalLogger
+}
+
 // Debug calls the debug method of the registered logger
 func Debug(msg string, keyvals ...interface{}) {
 	internalLogger.Debug(msg, keyvals...)
