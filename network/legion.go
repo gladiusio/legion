@@ -12,6 +12,8 @@ import (
 	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
 
+	log "github.com/gladiusio/legion/logger"
+
 	multierror "github.com/hashicorp/go-multierror"
 )
 
@@ -108,6 +110,7 @@ func (l *Legion) AddPeer(addresses ...*utils.LegionAddress) error {
 	for _, address := range addresses {
 		p, err := l.createAndDialPeer(address)
 		if err != nil {
+			log.Warn().Field("err", err).Log("Error adding peer")
 			result = multierror.Append(result, err)
 			continue
 		}
@@ -197,6 +200,7 @@ func (l *Legion) Listen() error {
 	go func() {
 		time.Sleep(1 * time.Second)
 		close(l.started)
+		log.Info().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
 	}()
 
 	// Accept incoming TCP connections
@@ -318,4 +322,6 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	}
 	l.storePeer(p)
 	l.addMessageListener(p)
+
+	log.Debug().Field("addr", address.String()).Log("Recieved new peer connection")
 }

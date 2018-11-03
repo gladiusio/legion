@@ -11,11 +11,11 @@
 
 ---
 
-Legion is an easy to use, fast, and bare-bones peer to peer library designed to leave most of the network characteristics up to the 
+Legion is an easy to use, fast, and bare-bones peer to peer library designed to leave most of the network characteristics up to the
 user through a simple yet powerful plugin system. It was written because here at [Gladius](https://gladius.io) we needed a peer
-to peer overlay for our applications, and existing solutions were not a perfect fit for our use case. 
+to peer overlay for our applications, and existing solutions were not a perfect fit for our use case.
 
-We would also like to link to the Perlin Network's [Noise](https://github.com/perlin-network/noise), as their API inspired 
+We would also like to link to the Perlin Network's [Noise](https://github.com/perlin-network/noise), as their API inspired
 a lot of our design philosophy and you should totally check it out.
 
 ## Overview
@@ -31,8 +31,8 @@ TODO
 
 ## Usage
 
-This should be considered a quick start guide, there are more examples in the 
-[examples folder](https://github.com/gladiusio/legion/tree/readme-cleanup/examples) and in the 
+This should be considered a quick start guide, there are more examples in the
+[examples folder](https://github.com/gladiusio/legion/tree/readme-cleanup/examples) and in the
 [Gladius Network Gateway](https://github.com/gladiusio/gladius-network-gateway)
 
 ### Basic Usage
@@ -45,6 +45,44 @@ TODO
 TODO
 ```golang
 
+```
+
+### Custom Logger
+The internal logger is a generic type that can be overridden by the user as long
+as your logger meets the requirements below:
+```go
+// GenericLogger is the logger interface that legion uses, you can plug in
+// your own logger as long as your logger implements this interface.
+type GenericLogger interface {
+	// Base log types
+	Debug() GenericContext
+	Info() GenericContext
+	Warn() GenericContext
+	Error() GenericContext
+
+	// Add context like logger.With(NewContext().Field("test", "val"))
+	With(ctx GenericContext) GenericLogger
+}
+
+// GenericContext provides a way to add fields to a log event
+type GenericContext interface {
+	Field(key string, val interface{}) GenericContext
+
+	// Actually log the built up log line with the message
+	Log(msg string)
+}
+```
+You can register a new logger by calling
+
+```go
+logger.SetLogger(YourLogger)
+```
+By default we use [zerolog](https://github.com/rs/zerolog), you can see our implemented logger [here](https://github.com/gladiusio/legion/blob/master/logger/zerolog_logger.go).
+If you want to edit the underlying zerolog instance, you can call:
+
+```go
+l := logger.GetLogger() // Get the wrapper
+zerologger := l.(logger.ZeroLogger).Logger // Get the actual Zerolog instance (can change things like the formatting, output location, etc)
 ```
 
 ### Plugins
@@ -62,8 +100,8 @@ type PluginInterface interface {
 }
 ```
 
-If you don't need all of these methods, you can use our handy GenericPlugin as an 
-[anonymous field](http://golangtutorials.blogspot.com/2011/06/anonymous-fields-in-structs-like-object.html) 
+If you don't need all of these methods, you can use our handy GenericPlugin as an
+[anonymous field](http://golangtutorials.blogspot.com/2011/06/anonymous-fields-in-structs-like-object.html)
 in your struct, like this:
 
 ```go
