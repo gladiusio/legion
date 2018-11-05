@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -13,7 +14,10 @@ import (
 )
 
 func makeConfig(port uint16) *config.LegionConfig {
-	return &config.LegionConfig{BindAddress: utils.NewLegionAddress("localhost", port)}
+	return &config.LegionConfig{
+		BindAddress:      utils.NewLegionAddress("localhost", port),
+		MessageValidator: func(m *message.Message) bool { return true },
+	}
 }
 
 func TestLegionCreation(t *testing.T) {
@@ -140,6 +144,33 @@ func TestPeerConnection(t *testing.T) {
 
 	peerCount = 0
 	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	if peerCount != 0 {
+		t.Errorf("remote number of peers is incorrect, there should have been 0, there were: %d", peerCount)
+	}
+}
+
+func TestPeerConnectionWhenMessageRecieved(t *testing.T) {
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	peerCount := 0
+	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	if peerCount != 1 {
+		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
+	}
+
+	// Peer 1 sends introduction to peer 2
+	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), lg.legions[1].config.BindAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	peerCount = 0
+	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
@@ -183,7 +214,7 @@ func TestBroadcast(t *testing.T) {
 	lg.legions[0].PromotePeer(lg.legions[1].config.BindAddress)
 	time.Sleep(100 * time.Millisecond)
 
-	lg.legions[0].Broadcast(&message.Message{})
+	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}))
 
 	time.Sleep(200 * time.Millisecond)
 
@@ -206,7 +237,7 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 		leg.RegisterPlugin(p)
 	}
 
-	lg.legions[0].BroadcastRandom(&message.Message{}, 11)
+	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 11)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -229,7 +260,7 @@ func TestBroadcastRandom(t *testing.T) {
 		leg.RegisterPlugin(p)
 	}
 
-	lg.legions[0].BroadcastRandom(&message.Message{}, 5)
+	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 5)
 
 	time.Sleep(200 * time.Millisecond)
 
@@ -243,5 +274,39 @@ func TestSelfDial(t *testing.T) {
 }
 
 func TestSingleConnectionOpened(t *testing.T) {
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
 
+	lg.connect()
+	defer lg.stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Peer 1 sends introduction to peer 2
+	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), lg.legions[1].config.BindAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	peerCount := 0
+	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; fmt.Println(key); return true })
+	if peerCount != 1 {
+		t.Errorf("remote number of peers is incorrect after intro message, there should have been 1, there were: %d", peerCount)
+	}
+
+	// Peer 2 sends message to peer 1
+	//lg.legions[1].Broadcast(message.New(lg.legions[1].config.BindAddress, "test", []byte{}), lg.legions[0].config.BindAddress)
+
+	time.Sleep(100 * time.Millisecond)
+
+	peerCount = 0
+	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	if peerCount != 1 {
+		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
+	}
+
+	peerCount = 0
+	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; fmt.Println(key); return true })
+	if peerCount != 1 {
+		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
+	}
 }

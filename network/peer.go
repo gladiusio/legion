@@ -3,9 +3,9 @@ package network
 import (
 	"bufio"
 	"encoding/binary"
-	"encoding/json"
 	"net"
 
+	"github.com/gladiusio/legion/logger"
 	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
 	"github.com/hashicorp/yamux"
@@ -91,11 +91,7 @@ func (p *Peer) sendMessage(m *message.Message) {
 		return
 	}
 
-	messageBytes, err := json.Marshal(m)
-	if err != nil {
-		// TODO: Log error
-		return
-	}
+	messageBytes := m.Encode()
 
 	buffer := make([]byte, 4)
 	binary.BigEndian.PutUint32(buffer, uint32(len(messageBytes)))
@@ -161,12 +157,12 @@ func (p *Peer) readMessage(conn net.Conn) {
 		}
 		numBytesRead += n
 	}
-
+	logger.Debug().Field("size", size).Log("New message")
 	// Unmarshal the message
 	m := &message.Message{}
-	err = json.Unmarshal(buffer, m)
+	err = m.Decode(buffer)
 	if err != nil {
-		// TODO: Log error
+		logger.Debug().Field("remote_peer", conn.RemoteAddr().String()).Log("peer: could not decode incoming message")
 		return
 	}
 

@@ -19,6 +19,10 @@ import (
 
 // NewLegion creates a legion object from a config
 func NewLegion(conf *config.LegionConfig) *Legion {
+	if conf.MessageValidator == nil {
+		log.Warn().Log("legion: message validator function is nil, all messages will be considered valid")
+		conf.MessageValidator = func(m *message.Message) bool { return true }
+	}
 	return &Legion{
 		promotedPeers: &sync.Map{},
 		allPeers:      &sync.Map{},
@@ -71,7 +75,6 @@ func (l *Legion) Broadcast(message *message.Message, addresses ...*utils.LegionA
 			p.(*Peer).QueueMessage(message)
 		} else {
 			l.AddPeer(address)
-
 		}
 	}
 }
@@ -273,10 +276,21 @@ func (l *Legion) FireNetworkEvent(eventType events.NetworkEvent) {
 func (l *Legion) addMessageListener(p *Peer) {
 	// Listen to messages from the peer forever
 	go func() {
+		var once sync.Once
+		storePeer := func(sender *utils.LegionAddress) func() {
+			return func() {
+				p.remote = sender
+				l.storePeer(p)
+			}
+		}
 		for {
 			select {
 			case m := <-p.IncomingMessages():
-				l.FireMessageEvent(events.NewMessageEvent, m)
+				// Call whatever validator is registered to see if the message is valid
+				if l.config.MessageValidator(m) {
+					l.FireMessageEvent(events.NewMessageEvent, m)
+					once.Do(storePeer(m.Sender())) // Only store the peer on the first message
+				}
 			}
 		}
 	}()
@@ -308,20 +322,18 @@ func (l *Legion) storePromotedPeer(p *Peer) {
 }
 
 func (l *Legion) handleNewConnection(conn net.Conn) {
-	// Create a new peer (kinda hacky rn, should have some control message to get
-	// the dialable address of the remote, so we don't dial them and open another
-	// stream )
-	addrString := conn.RemoteAddr().String()
-	address := utils.LegionAddressFromString(addrString)
-	p := NewPeer(address)
+	// Create a new (not stored or dialable) peer. This will be registered with the network
+	// later in the message listener.
+	p := NewPeer(nil)
 	err := p.CreateSession(conn)
 	if err != nil {
 		conn.Close()
 		fmt.Println(err)
 		return
 	}
-	l.storePeer(p)
+
+	// Listen to new messages from that peer
 	l.addMessageListener(p)
 
-	log.Debug().Field("addr", address.String()).Log("Recieved new peer connection")
+	log.Debug().Field("addr", conn.RemoteAddr().String()).Log("Recieved new peer connection")
 }
