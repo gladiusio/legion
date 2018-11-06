@@ -20,14 +20,18 @@ a lot of our design philosophy and you should totally check it out.
 
 ## Overview
 
-- User defined messages (allows you to build your own cryptography)
+- User defined messages, allowing you to build your own cryptography and message validation system
 - Powerful plugin system with easy to use event context
-- Single TCP stream opened to each peer
-- User defined logging
+- Single TCP connection opened to each peer, where messages are sent over multiplexed streams
+- User defined logging via a [logging interface](#custom-logger)
 
 ## Background
 
-TODO
+### Basic Concepts
+There are two types of peers in a Legion network, promoted and unpromoted. This allows a user to connect to a peer and message it without having it generally sendable via a call to Broadcast, so that you can have some authentication or validation of a remote peer without having to code special logic in your plugins to handle that scenario. 
+
+Messages are extremely customizable and simple, we have no cryptography by default and don't enforce any specific message body requirements. We also 
+allow a user to set your own message validator to check an incoming message, which means you can add in your own crypto, compression, or really any other criteria you want.
 
 ## Usage
 
@@ -36,16 +40,71 @@ This should be considered a quick start guide, there are more examples in the
 [Gladius Network Gateway](https://github.com/gladiusio/gladius-network-gateway)
 
 ### Basic Usage
-TODO
+Here we create a legion object with a default config, wait until it's listening, add a peer, and promote it so it is generally sendable.
 ```golang
+func main(){
+    // Build a basic config
+    conf := legion.SimpleConfig("localhost", 7947)
+    
+    // Build a new legion object from the config
+    l := legion.New(conf)
 
+    // Listen in a new goroutine
+    go l.Listen()
+    // Wait until the network is listening
+    l.Started()
+
+    // Dial a peer and add it to the non-messagable peers
+    err := l.AddPeer(utils.LegionAddressFromString("localhost:7946"))
+    if err != nil {
+        panic(err)
+    }
+
+    // Make that peer sendable by promoting it
+     err := l.PromotePeer(utils.LegionAddressFromString("localhost:7946"))
+    if err != nil {
+        panic(err)
+    }
+
+    // Block forever
+    select {}
+}
 ```
 
 ### Messaging
-TODO
+There are several ways to send messages to peers in the network:
 ```golang
+func main(){
+    // ... build our legion object
 
+    // Dial a peer and add it to the non-messagable peers
+    err := l.AddPeer(utils.LegionAddressFromString("localhost:7946"))
+    if err != nil {
+        panic(err)
+    }
+
+    // Will send to all promoted peers
+    l.Broadcast(message.New(config.BindAddress,"ping", []byte{`ping`})
+
+    // Send to a specific peer
+    l.Broadcast(message.New(config.BindAddress,"ping", []byte{`ping`}, 
+        utils.LegionAddressFromString("localhost:7946"))
+    
+    // Broadcast to a random 5 promoted peers
+    l.BroadcastRandom(message.New(config.BindAddress,"ping", []byte{`ping`}, 5)
+
+    // Block forever
+    select {}
+}
 ```
+You can also set your own message validation function by setting the config value `MessageValidator` with:
+```golang
+config.MessageValidator = func(m *message.Message) bool {
+    // Do your validation here and return true if valid and false if not
+    return true
+}
+```
+Any message that is not valid will not be passed to plugins.
 
 ### Custom Logger
 The internal logger is a generic type that can be overridden by the user as long
