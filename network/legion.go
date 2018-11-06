@@ -1,7 +1,6 @@
 package network
 
 import (
-	"fmt"
 	"math/rand"
 	"net"
 	"sync"
@@ -59,7 +58,7 @@ type Legion struct {
 
 // Broadcast sends the message to all writeable peers, unless a
 // specified list of peers is provided
-func (l *Legion) Broadcast(message *message.Message, addresses ...*utils.LegionAddress) {
+func (l *Legion) Broadcast(message *message.Message, addresses ...utils.LegionAddress) {
 	// Wait until we're listening
 	l.Started()
 
@@ -85,8 +84,8 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 	l.Started()
 
 	// sync.Map doesn't store length, so we get n random like this
-	addrs := make([]*utils.LegionAddress, 0, 100)
-	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(*utils.LegionAddress)); return true })
+	addrs := make([]utils.LegionAddress, 0, 100)
+	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.LegionAddress)); return true })
 
 	if n > len(addrs) {
 		l.Broadcast(message)
@@ -108,7 +107,7 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 // to all peers will not send to the added peers unless they are
 // promoted. Returns an error if one or more peers can't be dialed,
 // however all peers will have a dial attempt.
-func (l *Legion) AddPeer(addresses ...*utils.LegionAddress) error {
+func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
 		p, err := l.createAndDialPeer(address)
@@ -126,7 +125,7 @@ func (l *Legion) AddPeer(addresses ...*utils.LegionAddress) error {
 // PromotePeer makes the given peer(s) writeable, if the peer doesn't exist
 // it is created first. Returns an error if one or more peers can't be dialed,
 // however all peers will have a dial attempt.
-func (l *Legion) PromotePeer(addresses ...*utils.LegionAddress) error {
+func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
 		if p, ok := l.allPeers.Load(address); ok { // If the peer exists, we add it to the promoted peers
@@ -149,7 +148,7 @@ func (l *Legion) PromotePeer(addresses ...*utils.LegionAddress) error {
 // DeletePeer closes all connections to a peer(s) and removes it from all peer lists.
 // Returns an error if there is an error closing one or more peers. No matter the
 // error, there will be an attempt to close all peers.
-func (l *Legion) DeletePeer(addresses ...*utils.LegionAddress) error {
+func (l *Legion) DeletePeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 
 	for _, address := range addresses {
@@ -167,13 +166,13 @@ func (l *Legion) DeletePeer(addresses ...*utils.LegionAddress) error {
 }
 
 // PeerExists returns whether or not a peer has been connected to previously
-func (l *Legion) PeerExists(address *utils.LegionAddress) bool {
+func (l *Legion) PeerExists(address utils.LegionAddress) bool {
 	_, ok := l.allPeers.Load(address)
 	return ok
 }
 
 // PeerPromoted returns whether or not a peer is promoted.
-func (l *Legion) PeerPromoted(address *utils.LegionAddress) bool {
+func (l *Legion) PeerPromoted(address utils.LegionAddress) bool {
 	_, ok := l.promotedPeers.Load(address)
 	return ok
 }
@@ -277,7 +276,7 @@ func (l *Legion) addMessageListener(p *Peer) {
 	// Listen to messages from the peer forever
 	go func() {
 		var once sync.Once
-		storePeer := func(sender *utils.LegionAddress) func() {
+		storePeer := func(sender utils.LegionAddress) func() {
 			return func() {
 				p.remote = sender
 				l.storePeer(p)
@@ -296,15 +295,15 @@ func (l *Legion) addMessageListener(p *Peer) {
 	}()
 }
 
-func (l *Legion) createAndDialPeer(address *utils.LegionAddress) (*Peer, error) {
+func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
 	p := NewPeer(address)
 
-	conn, err := net.Dial("tcp", p.remote.String())
+	conn, err := net.Dial("tcp", address.String())
 	if err != nil {
 		return nil, err
 	}
 
-	err = p.CreateSession(conn)
+	err = p.CreateClient(conn)
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -313,22 +312,13 @@ func (l *Legion) createAndDialPeer(address *utils.LegionAddress) (*Peer, error) 
 	return p, nil
 }
 
-func (l *Legion) storePeer(p *Peer) {
-	l.allPeers.Store(p.remote, p)
-}
-
-func (l *Legion) storePromotedPeer(p *Peer) {
-	l.promotedPeers.Store(p.remote, p)
-}
-
 func (l *Legion) handleNewConnection(conn net.Conn) {
 	// Create a new (not stored or dialable) peer. This will be registered with the network
 	// later in the message listener.
-	p := NewPeer(nil)
-	err := p.CreateSession(conn)
+	p := NewPeer(utils.LegionAddress{})
+	err := p.CreateServer(conn)
 	if err != nil {
 		conn.Close()
-		fmt.Println(err)
 		return
 	}
 
@@ -336,4 +326,12 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	l.addMessageListener(p)
 
 	log.Debug().Field("addr", conn.RemoteAddr().String()).Log("Recieved new peer connection")
+}
+
+func (l *Legion) storePeer(p *Peer) {
+	l.allPeers.Store(p.remote, p)
+}
+
+func (l *Legion) storePromotedPeer(p *Peer) {
+	l.promotedPeers.Store(p.remote, p)
 }

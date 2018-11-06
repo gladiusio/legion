@@ -13,7 +13,7 @@ import (
 
 // NewPeer returns a new peer from the given remote. It also
 // sets up the reading and writing channels
-func NewPeer(remote *utils.LegionAddress) *Peer {
+func NewPeer(remote utils.LegionAddress) *Peer {
 	p := &Peer{
 		remote:       remote,
 		sendQueue:    make(chan *message.Message),
@@ -27,7 +27,7 @@ func NewPeer(remote *utils.LegionAddress) *Peer {
 // a remote peer
 type Peer struct {
 	// The remote Address to dial
-	remote *utils.LegionAddress
+	remote utils.LegionAddress
 
 	// The internal channel we write to to send a new message
 	// to the remote
@@ -51,8 +51,25 @@ func (p *Peer) IncomingMessages() chan *message.Message {
 	return r
 }
 
-// CreateSession takes an incoming connection and creates a session from
-func (p *Peer) CreateSession(conn net.Conn) error {
+// CreateClient takes an incoming connection and creates a client session from it
+func (p *Peer) CreateClient(conn net.Conn) error {
+	// Setup client side of yamux
+	session, err := yamux.Client(conn, nil)
+	if err != nil {
+		return err
+	}
+
+	// Store this session so we can open streams and write messages to it
+	p.session = session
+
+	p.startSendLoop()
+	p.startRecieveLoop()
+
+	return nil
+}
+
+// CreateServer takes an incoming connection and creates a server session from it
+func (p *Peer) CreateServer(conn net.Conn) error {
 	// Setup server side of yamux
 	session, err := yamux.Server(conn, nil)
 	if err != nil {
@@ -87,7 +104,7 @@ func (p *Peer) startSendLoop() {
 func (p *Peer) sendMessage(m *message.Message) {
 	stream, err := p.session.Open()
 	if err != nil {
-		// TODO: Log error
+		logger.Warn().Field("err", err.Error()).Log("peer: error opening connection")
 		return
 	}
 
@@ -101,7 +118,7 @@ func (p *Peer) sendMessage(m *message.Message) {
 	bw := bufio.NewWriter(stream)
 	_, err = bw.Write(buffer)
 	if err != nil {
-		// TODO: Log error
+		logger.Warn().Field("err", err.Error()).Log("peer: error writing to stream")
 		return
 	}
 	bw.Flush()
@@ -110,9 +127,10 @@ func (p *Peer) sendMessage(m *message.Message) {
 func (p *Peer) startRecieveLoop() {
 	go func() {
 		for {
-			incomingStream, err := p.session.Accept()
+			incomingStream, err := p.session.AcceptStream()
 			if err != nil {
-				// TODO: Log error
+				logger.Warn().Field("err", err.Error()).Log("peer: error establishing incoming stream from peer.")
+				continue
 			}
 
 			go p.readMessage(incomingStream)
@@ -120,17 +138,17 @@ func (p *Peer) startRecieveLoop() {
 	}()
 }
 
-func (p *Peer) readMessage(conn net.Conn) {
+func (p *Peer) readMessage(stream *yamux.Stream) {
 	var err error
 	buffer := make([]byte, 4)
 
 	// Close this message stream when we're done
-	defer conn.Close()
+	defer stream.Close()
 
 	// Read the message size header
 	n, numBytesRead := 0, 0
 	for numBytesRead < 4 {
-		n, err = conn.Read(buffer)
+		n, err = stream.Read(buffer)
 		if err != nil {
 			// TODO: Log error
 			return
@@ -150,7 +168,7 @@ func (p *Peer) readMessage(conn net.Conn) {
 	// Read into the buffer
 	n, numBytesRead = 0, 0
 	for numBytesRead < int(size) {
-		n, err = conn.Read(buffer[numBytesRead:]) // Make sure we don't write over anthing
+		n, err = stream.Read(buffer[numBytesRead:]) // Make sure we don't write over anthing
 		if err != nil {
 			// TODO: Log error
 			return
@@ -162,7 +180,7 @@ func (p *Peer) readMessage(conn net.Conn) {
 	m := &message.Message{}
 	err = m.Decode(buffer)
 	if err != nil {
-		logger.Debug().Field("remote_peer", conn.RemoteAddr().String()).Log("peer: could not decode incoming message")
+		logger.Debug().Field("remote_peer", stream.RemoteAddr().String()).Log("peer: could not decode incoming message")
 		return
 	}
 

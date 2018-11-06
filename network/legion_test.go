@@ -1,7 +1,6 @@
 package network
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -285,16 +284,16 @@ func TestSingleConnectionOpened(t *testing.T) {
 	// Peer 1 sends introduction to peer 2
 	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), lg.legions[1].config.BindAddress)
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 
 	peerCount := 0
-	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; fmt.Println(key); return true })
+	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect after intro message, there should have been 1, there were: %d", peerCount)
 	}
 
 	// Peer 2 sends message to peer 1
-	//lg.legions[1].Broadcast(message.New(lg.legions[1].config.BindAddress, "test", []byte{}), lg.legions[0].config.BindAddress)
+	lg.legions[1].Broadcast(message.New(lg.legions[1].config.BindAddress, "test", []byte{}), lg.legions[0].config.BindAddress)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -305,7 +304,7 @@ func TestSingleConnectionOpened(t *testing.T) {
 	}
 
 	peerCount = 0
-	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; fmt.Println(key); return true })
+	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
