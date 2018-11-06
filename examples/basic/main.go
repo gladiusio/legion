@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	conf := legion.SimpleConfig("localhost", 7947)
+	conf := legion.DefaultConfig("localhost", 7947)
 	l := legion.New(conf)
 	go l.Listen()
 	l.Started()
