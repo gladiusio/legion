@@ -243,9 +243,14 @@ func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *messag
 
 // FirePeerEvent fires a peer event and sends context to the correct plugin methods
 // based on the event type
-func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer ...*Peer) {
+func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer) {
 	go func() {
-		peerContext := &PeerContext{} // Create some context for our plugin
+		// Create some context for our plugin
+		peerContext := &PeerContext{
+			Legion: l,
+			Peer:   peer,
+		}
+		// Tell all of the plugins about the event
 		for _, p := range l.plugins {
 			if eventType == events.PeerAddEvent {
 				go p.PeerAdded(peerContext)
@@ -262,7 +267,7 @@ func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer ...*Peer) {
 // plugin method based on the event type. NOTE: This method blocks until all are
 // completed
 func (l *Legion) FireNetworkEvent(eventType events.NetworkEvent) {
-	netContext := &NetworkContext{}
+	netContext := &NetworkContext{Legion: l}
 	for _, p := range l.plugins {
 		if eventType == events.StartupEvent {
 			p.Startup(netContext)
