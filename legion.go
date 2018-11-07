@@ -6,6 +6,7 @@ package legion
 import (
 	"github.com/gladiusio/legion/network"
 	"github.com/gladiusio/legion/network/config"
+	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
 )
 
@@ -14,7 +15,11 @@ func New(c *config.LegionConfig) *network.Legion {
 	return network.NewLegion(c)
 }
 
-// SimpleConfig returns a safe config with only the bind address and port specified
-func SimpleConfig(bindAddress string, port uint16) *config.LegionConfig {
-	return &config.LegionConfig{BindAddress: utils.NewLegionAddress(bindAddress, port)}
+// DefaultConfig returns a config with only the bind address and port specified,
+// and all messages are considered valid
+func DefaultConfig(bindAddress string, port uint16) *config.LegionConfig {
+	return &config.LegionConfig{
+		BindAddress:      utils.NewLegionAddress(bindAddress, port),
+		MessageValidator: func(m *message.Message) bool { return true },
+	}
 }

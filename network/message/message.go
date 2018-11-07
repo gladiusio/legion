@@ -17,7 +17,7 @@ var builderPool = sync.Pool{
 }
 
 // New returns a new Message with the specified fields
-func New(sender *utils.LegionAddress, messageType string, body []byte) *Message {
+func New(sender utils.LegionAddress, messageType string, body []byte) *Message {
 	return &Message{
 		sender:      sender,
 		messageType: messageType,
@@ -29,13 +29,13 @@ func New(sender *utils.LegionAddress, messageType string, body []byte) *Message 
 // It is simple by design to allow for significant customization
 // of the network and it's message processing.
 type Message struct {
-	sender      *utils.LegionAddress
+	sender      utils.LegionAddress
 	messageType string
 	body        []byte
 }
 
 // Sender returns the sender address
-func (m *Message) Sender() *utils.LegionAddress {
+func (m *Message) Sender() utils.LegionAddress {
 	return m.sender
 }
 
