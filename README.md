@@ -6,6 +6,7 @@
     <a href="https://godoc.org/github.com/gladiusio/legion/"><img src="https://godoc.org/github.com/gladiusio/legion/network?status.svg"></a>
     <a href="https://travis-ci.com/gladiusio/legion"><img src="https://travis-ci.com/gladiusio/legion.svg?branch=master"></a>
     <a href="https://goreportcard.com/report/github.com/gladiusio/legion"><img src="https://goreportcard.com/badge/github.com/gladiusio/legion"></a>
+	<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
   </p>
 </p>
 
