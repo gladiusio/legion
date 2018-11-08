@@ -341,7 +341,7 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	// Listen to new messages from that peer
 	l.addMessageListener(p, true)
 
-	log.Debug().Field("addr", conn.RemoteAddr().String()).Log("Recieved new peer connection")
+	log.Debug().Field("addr", conn.RemoteAddr().String()).Log("Received new peer connection")
 }
 
 func (l *Legion) storePeer(p *Peer, promoted bool) {

@@ -22,17 +22,20 @@ type field struct {
 	val interface{}
 }
 
+// ZeroLogContext meets the interface type and provides context to a log event
 type ZeroLogContext struct {
 	event  *zerolog.Event
 	fields []field
 }
 
+// Field appends a field to the context
 func (zlc *ZeroLogContext) Field(key string, val interface{}) GenericContext {
 	zlc.event = zlc.event.Interface(key, val)
 	zlc.fields = append(zlc.fields, field{key, val})
 	return zlc
 }
 
+// Log prints the compiled log
 func (zlc *ZeroLogContext) Log(msg string) {
 	zlc.event.Msg(msg)
 }

@@ -224,7 +224,7 @@ func TestBroadcast(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	if failed {
-		t.Error("peer never recieved message")
+		t.Error("peer never received message")
 	}
 }
 
@@ -248,7 +248,7 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 
 	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 11)
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 
 	if count != 9 {
 		t.Errorf("random broadcast was not sent to all peers, should have been 9, was: %d", count)
@@ -275,7 +275,7 @@ func TestBroadcastRandom(t *testing.T) {
 
 	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 5)
 
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 
 	if count != 5 {
 		t.Errorf("random broadcast was not sent to all peers, should have been 5, was: %d", count)

@@ -18,7 +18,7 @@ func (p *ChatPlugin) Startup(ctx *network.NetworkContext) {
 	fmt.Printf("[%s] Started chat client, type below and press enter to send messages.\n", aurora.Green("Legion Chat Example"))
 }
 
-// NewMessage is called when a new message is recieved by the network
+// NewMessage is called when a new message is received by the network
 func (p *ChatPlugin) NewMessage(ctx *network.MessageContext) {
 	// First we make sure it is the right type
 	if ctx.Message.Type() == "chat_message" {
