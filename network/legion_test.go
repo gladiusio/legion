@@ -248,7 +248,7 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 
 	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 11)
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	if count != 9 {
 		t.Errorf("random broadcast was not sent to all peers, should have been 9, was: %d", count)
