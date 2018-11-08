@@ -275,6 +275,8 @@ func TestBroadcastRandom(t *testing.T) {
 		leg.RegisterPlugin(p)
 	}
 
+	time.Sleep(100 * time.Millisecond)
+
 	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 5)
 
 	time.Sleep(300 * time.Millisecond)
