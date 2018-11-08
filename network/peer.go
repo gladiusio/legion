@@ -36,7 +36,11 @@ type Peer struct {
 	// The channel of incoming messages
 	receiveChans [](chan *message.Message)
 
+	// The session with the remote (either incoming or outgoing)
 	session *yamux.Session
+
+	// The disconnected channel, closed when the peer disconnects
+	disconnected chan struct{}
 }
 
 // QueueMessage queues the specified message to be sent to the remote
@@ -49,6 +53,11 @@ func (p *Peer) IncomingMessages() chan *message.Message {
 	r := make(chan *message.Message)
 	p.receiveChans = append(p.receiveChans, r)
 	return r
+}
+
+// BlockUntilDisconnected blocks until the remote is disconnected
+func (p *Peer) BlockUntilDisconnected() {
+	<-p.session.CloseChan()
 }
 
 // CreateClient takes an incoming connection and creates a client session from it
@@ -90,11 +99,19 @@ func (p *Peer) Close() error {
 	return p.session.Close()
 }
 
+// Remote returns the address of the remote peer
+func (p *Peer) Remote() utils.LegionAddress {
+	return p.remote
+}
+
 func (p *Peer) startSendLoop() {
 	go func() {
 		for {
 			select {
 			case m := <-p.sendQueue:
+				if p.session.IsClosed() {
+					return
+				}
 				go p.sendMessage(m)
 			}
 		}
@@ -129,8 +146,12 @@ func (p *Peer) startRecieveLoop() {
 		for {
 			incomingStream, err := p.session.AcceptStream()
 			if err != nil {
+				if p.session.IsClosed() {
+					return
+				}
 				logger.Warn().Field("err", err.Error()).Log("peer: error establishing incoming stream from peer.")
-				continue
+				p.session.Close()
+				return
 			}
 
 			go p.readMessage(incomingStream)
@@ -175,7 +196,6 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 		}
 		numBytesRead += n
 	}
-	logger.Debug().Field("size", size).Log("New message")
 	// Unmarshal the message
 	m := &message.Message{}
 	err = m.Decode(buffer)

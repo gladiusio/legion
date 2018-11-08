@@ -16,7 +16,7 @@ type PeerEvent int
 // The actual events
 const (
 	PeerAddEvent PeerEvent = iota
-	PeerDeleteEvent
+	PeerDisconnectEvent
 	PeerPromotionEvent
 )
 
