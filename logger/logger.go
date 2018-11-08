@@ -7,6 +7,7 @@ func SetLogger(newLogger GenericLogger) {
 	internalLogger = newLogger
 }
 
+// GetLogger returns the internal logger
 func GetLogger() GenericLogger {
 	return internalLogger
 }
