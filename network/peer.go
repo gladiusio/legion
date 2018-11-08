@@ -58,7 +58,6 @@ func (p *Peer) IncomingMessages() chan *message.Message {
 // BlockUntilDisconnected blocks until the remote is disconnected
 func (p *Peer) BlockUntilDisconnected() {
 	<-p.session.CloseChan()
-	logger.Debug().Field("remote", p.remote.String()).Log("Peer disconnected")
 }
 
 // CreateClient takes an incoming connection and creates a client session from it
@@ -98,6 +97,11 @@ func (p *Peer) CreateServer(conn net.Conn) error {
 // Close closes the stream if it exists
 func (p *Peer) Close() error {
 	return p.session.Close()
+}
+
+// Remote returns the address of the remote peer
+func (p *Peer) Remote() utils.LegionAddress {
+	return p.remote
 }
 
 func (p *Peer) startSendLoop() {
@@ -192,7 +196,6 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 		}
 		numBytesRead += n
 	}
-	logger.Debug().Field("size", size).Log("New message")
 	// Unmarshal the message
 	m := &message.Message{}
 	err = m.Decode(buffer)

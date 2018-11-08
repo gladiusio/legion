@@ -116,8 +116,8 @@ func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 			result = multierror.Append(result, err)
 			continue
 		}
-		l.storePeer(p)
-		l.addMessageListener(p)
+		l.storePeer(p, false)
+		l.addMessageListener(p, false)
 	}
 	return result.ErrorOrNil()
 }
@@ -129,7 +129,7 @@ func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
 		if p, ok := l.allPeers.Load(address); ok { // If the peer exists, we add it to the promoted peers
-			l.promotedPeers.Store(address, p.(*Peer))
+			l.storePeer(p.(*Peer), true)
 			l.FirePeerEvent(events.PeerPromotionEvent, p.(*Peer))
 		} else { // If not we create a new peer and dial it
 			p, err := l.createAndDialPeer(address)
@@ -137,8 +137,9 @@ func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 				result = multierror.Append(result, err)
 				continue
 			}
-			l.storePeer(p)
-			l.storePromotedPeer(p)
+			l.storePeer(p, true)
+			l.addMessageListener(p, false)
+			l.FirePeerEvent(events.PeerAddEvent, p)
 			l.FirePeerEvent(events.PeerPromotionEvent, p)
 		}
 	}
@@ -187,10 +188,6 @@ func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
 // Listen will listen on the configured address for incoming connections, it will
 // also wait for all plugin's Startup() methods to return before binding.
 func (l *Legion) Listen() error {
-	// Setup start and stop calls on our plugin list
-	l.FireNetworkEvent(events.StartupEvent)
-	defer l.FireNetworkEvent(events.CloseEvent)
-
 	var err error
 
 	l.listener, err = net.Listen("tcp", l.config.BindAddress.String())
@@ -203,6 +200,7 @@ func (l *Legion) Listen() error {
 		time.Sleep(1 * time.Second)
 		close(l.started)
 		log.Info().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
+		l.FireNetworkEvent(events.StartupEvent)
 	}()
 
 	// Accept incoming TCP connections
@@ -277,14 +275,15 @@ func (l *Legion) FireNetworkEvent(eventType events.NetworkEvent) {
 	}
 }
 
-func (l *Legion) addMessageListener(p *Peer) {
+func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 	// Listen to messages from the peer forever
 	go func() {
 		var once sync.Once
 		storePeer := func(sender utils.LegionAddress) func() {
 			return func() {
 				p.remote = sender
-				l.storePeer(p)
+				l.storePeer(p, false)
+				l.FirePeerEvent(events.PeerAddEvent, p)
 			}
 		}
 		for {
@@ -293,7 +292,11 @@ func (l *Legion) addMessageListener(p *Peer) {
 				// Call whatever validator is registered to see if the message is valid
 				if l.config.MessageValidator(m) {
 					l.FireMessageEvent(events.NewMessageEvent, m)
-					once.Do(storePeer(m.Sender())) // Only store the peer on the first message
+					// Only store the peer on the first message if it is an incoming connection
+					// this is so we can get a the actual sender and store it
+					if incoming {
+						once.Do(storePeer(m.Sender()))
+					}
 				}
 			}
 		}
@@ -314,7 +317,15 @@ func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
 		return nil, err
 	}
 
+	// Send an introduction message so it knows who we are
+	p.QueueMessage(l.NewMessage("legion_introduction", []byte{}))
+
 	return p, nil
+}
+
+// NewMessage returns a message with the sender field set to the bind address of the network
+func (l *Legion) NewMessage(messageType string, body []byte) *message.Message {
+	return message.New(l.config.BindAddress, messageType, body)
 }
 
 func (l *Legion) handleNewConnection(conn net.Conn) {
@@ -328,30 +339,31 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	}
 
 	// Listen to new messages from that peer
-	l.addMessageListener(p)
+	l.addMessageListener(p, true)
 
 	log.Debug().Field("addr", conn.RemoteAddr().String()).Log("Recieved new peer connection")
 }
 
-func (l *Legion) storePeer(p *Peer) {
-	l.allPeers.Store(p.remote, p)
+func (l *Legion) storePeer(p *Peer, promoted bool) {
+	if promoted {
+		l.promotedPeers.Store(p.remote, p)
+	}
+
+	// If it is already stored, don't add a cleanup handler
+	if _, stored := l.allPeers.LoadOrStore(p.remote, p); stored {
+		return
+	}
 
 	// Wait until that peer is disconnected to remove it
 	go func() {
 		p.BlockUntilDisconnected()
+
+		// Cleanup both maps
 		l.allPeers.Delete(p.remote)
+		l.promotedPeers.Delete(p.remote)
 
 		// Only fire this once (not in storePromotedPeer)
 		l.FirePeerEvent(events.PeerDisconnectEvent, p)
-	}()
-}
-
-func (l *Legion) storePromotedPeer(p *Peer) {
-	l.promotedPeers.Store(p.remote, p)
-
-	// Wait until that peer is disconnected to remove it
-	go func() {
-		p.BlockUntilDisconnected()
-		l.allPeers.Delete(p.remote)
+		log.Debug().Field("remote_addr", p.Remote().String()).Log("Peer disconnected")
 	}()
 }
