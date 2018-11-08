@@ -1,18 +1,44 @@
 package main
 
 import (
+	"bufio"
+	"flag"
+	"os"
+	"strconv"
+	"strings"
+
 	"github.com/gladiusio/legion"
+	"github.com/gladiusio/legion/examples/chat/plugin"
 	"github.com/gladiusio/legion/utils"
 )
 
 func main() {
-	conf := legion.DefaultConfig("localhost", 7947)
+	bindAddress := flag.String("bindaddress", "localhost:6000", "the address to bind to")
+	remote := flag.String("remote", "", "the remote address to connect to")
+
+	flag.Parse()
+
+	splitAddress := strings.Split(*bindAddress, ":")
+
+	host := splitAddress[0]
+	port, _ := strconv.Atoi(splitAddress[1])
+
+	conf := legion.DefaultConfig(host, uint16(port))
 	l := legion.New(conf)
+	l.RegisterPlugin(new(plugin.ChatPlugin))
 	go l.Listen()
 	l.Started()
-	err := l.AddPeer(utils.LegionAddressFromString("localhost:7946"))
-	if err != nil {
-		panic(err)
+
+	if *remote != "" {
+		err := l.PromotePeer(utils.LegionAddressFromString(*remote))
+		if err != nil {
+			panic(err)
+		}
 	}
-	select {}
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		text, _ := reader.ReadBytes('\n')
+		l.Broadcast(l.NewMessage("chat_message", text))
+	}
 }
