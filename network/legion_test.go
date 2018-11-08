@@ -47,17 +47,19 @@ func TestRegisterPlugin(t *testing.T) {
 
 type MessagePlugin struct {
 	GenericPlugin
-	callback func()
+	callback func(ctx *MessageContext)
 }
 
 func (m *MessagePlugin) NewMessage(ctx *MessageContext) {
-	m.callback()
+	m.callback(ctx)
 }
 
 func TestFireMessageEvent(t *testing.T) {
 	l := NewLegion(makeConfig(6000))
 	failed := true
-	p := &MessagePlugin{callback: func() { failed = false }}
+	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+		failed = false
+	}}
 	l.RegisterPlugin(p)
 
 	l.FireMessageEvent(events.NewMessageEvent, &message.Message{})
@@ -143,8 +145,8 @@ func TestPeerConnection(t *testing.T) {
 
 	peerCount = 0
 	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
-	if peerCount != 0 {
-		t.Errorf("remote number of peers is incorrect, there should have been 0, there were: %d", peerCount)
+	if peerCount != 1 {
+		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 }
 
@@ -207,7 +209,11 @@ func TestBroadcast(t *testing.T) {
 	defer lg.stop()
 
 	failed := true
-	p := &MessagePlugin{callback: func() { failed = false }}
+	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+		if ctx.Message.Type() == "test" {
+			failed = false
+		}
+	}}
 	lg.legions[1].RegisterPlugin(p)
 
 	lg.legions[0].PromotePeer(lg.legions[1].config.BindAddress)
@@ -230,7 +236,11 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 	defer lg.stop()
 
 	var count uint64
-	p := &MessagePlugin{callback: func() { atomic.AddUint64(&count, 1) }}
+	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+		if ctx.Message.Type() == "test" {
+			atomic.AddUint64(&count, 1)
+		}
+	}}
 	for _, leg := range lg.legions[1:] {
 		lg.legions[0].PromotePeer(leg.config.BindAddress)
 		leg.RegisterPlugin(p)
@@ -253,7 +263,11 @@ func TestBroadcastRandom(t *testing.T) {
 	defer lg.stop()
 
 	var count uint64
-	p := &MessagePlugin{callback: func() { atomic.AddUint64(&count, 1) }}
+	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+		if ctx.Message.Type() == "test" {
+			atomic.AddUint64(&count, 1)
+		}
+	}}
 	for _, leg := range lg.legions[1:] {
 		lg.legions[0].PromotePeer(leg.config.BindAddress)
 		leg.RegisterPlugin(p)
