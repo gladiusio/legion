@@ -6,7 +6,7 @@ type PluginInterface interface {
 	NewMessage(ctx *MessageContext)
 	PeerAdded(ctx *PeerContext)
 	PeerPromotion(ctx *PeerContext)
-	PeerDeleted(ctx *PeerContext)
+	PeerDisconnect(ctx *PeerContext)
 	Startup(ctx *NetworkContext)
 	Close(ctx *NetworkContext)
 }
@@ -24,8 +24,8 @@ func (*GenericPlugin) PeerAdded(ctx *PeerContext) {}
 // PeerPromotion is called when a peer is made writeable
 func (*GenericPlugin) PeerPromotion(ctx *PeerContext) {}
 
-// PeerDeleted is called when a peer is deleted
-func (*GenericPlugin) PeerDeleted(ctx *PeerContext) {}
+// PeerDisconnect is called when a peer is deleted
+func (*GenericPlugin) PeerDisconnect(ctx *PeerContext) {}
 
 // Startup is called when the local peer starts listening
 func (*GenericPlugin) Startup(ctx *NetworkContext) {}

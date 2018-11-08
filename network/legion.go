@@ -254,8 +254,8 @@ func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer) {
 		for _, p := range l.plugins {
 			if eventType == events.PeerAddEvent {
 				go p.PeerAdded(peerContext)
-			} else if eventType == events.PeerDeleteEvent {
-				go p.PeerDeleted(peerContext)
+			} else if eventType == events.PeerDisconnectEvent {
+				go p.PeerDisconnect(peerContext)
 			} else if eventType == events.PeerPromotionEvent {
 				go p.PeerPromotion(peerContext)
 			}
@@ -335,8 +335,23 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 
 func (l *Legion) storePeer(p *Peer) {
 	l.allPeers.Store(p.remote, p)
+
+	// Wait until that peer is disconnected to remove it
+	go func() {
+		p.BlockUntilDisconnected()
+		l.allPeers.Delete(p.remote)
+
+		// Only fire this once (not in storePromotedPeer)
+		l.FirePeerEvent(events.PeerDisconnectEvent, p)
+	}()
 }
 
 func (l *Legion) storePromotedPeer(p *Peer) {
 	l.promotedPeers.Store(p.remote, p)
+
+	// Wait until that peer is disconnected to remove it
+	go func() {
+		p.BlockUntilDisconnected()
+		l.allPeers.Delete(p.remote)
+	}()
 }
