@@ -84,14 +84,14 @@ func main(){
     }
 
     // Will send to all promoted peers
-    l.Broadcast(message.New(config.BindAddress,"ping", []byte{`ping`})
+    l.Broadcast(message.New(config.BindAddress,"ping", []byte("ping"))
 
     // Send to a specific peer
-    l.Broadcast(message.New(config.BindAddress,"ping", []byte{`ping`}, 
+    l.Broadcast(message.New(config.BindAddress,"ping", []byte("ping"), 
         utils.LegionAddressFromString("localhost:7946"))
     
     // Broadcast to a random 5 promoted peers
-    l.BroadcastRandom(message.New(config.BindAddress,"ping", []byte{`ping`}, 5)
+    l.BroadcastRandom(message.New(config.BindAddress,"ping", []byte("ping"), 5)
 
     // Block forever
     select {}
@@ -153,7 +153,7 @@ type PluginInterface interface {
 	NewMessage(ctx *MessageContext)
 	PeerAdded(ctx *PeerContext)
 	PeerPromotion(ctx *PeerContext)
-	PeerDeleted(ctx *PeerContext)
+	PeerDisconnect(ctx *PeerContext)
 	Startup(ctx *NetworkContext)
 	Close(ctx *NetworkContext)
 }
@@ -169,7 +169,7 @@ type MyPlugin struct {
 	specialData string
 }
 
-func (m *MessagePlugin) NewMessage(ctx *MessageContext) {
+func (m *MyPlugin) NewMessage(ctx *MessageContext) {
 	fmt.Println(mspecialData)
 }
 ```
