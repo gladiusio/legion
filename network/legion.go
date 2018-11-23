@@ -110,14 +110,16 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
-		p, err := l.createAndDialPeer(address)
-		if err != nil {
-			log.Warn().Field("err", err).Log("Error adding peer")
-			result = multierror.Append(result, err)
-			continue
+		if _, ok := l.allPeers.Load(address); ok { // Make sure the peer isn't already added
+			p, err := l.createAndDialPeer(address)
+			if err != nil {
+				log.Warn().Field("err", err).Log("Error adding peer")
+				result = multierror.Append(result, err)
+				continue
+			}
+			l.storePeer(p, false)
+			l.addMessageListener(p, false)
 		}
-		l.storePeer(p, false)
-		l.addMessageListener(p, false)
 	}
 	return result.ErrorOrNil()
 }
