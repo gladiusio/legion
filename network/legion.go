@@ -110,7 +110,7 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
-		if _, ok := l.allPeers.Load(address); ok { // Make sure the peer isn't already added
+		if _, ok := l.allPeers.Load(address); !ok { // Make sure the peer isn't already added
 			p, err := l.createAndDialPeer(address)
 			if err != nil {
 				log.Warn().Field("err", err).Log("Error adding peer")
@@ -178,6 +178,28 @@ func (l *Legion) PeerExists(address utils.LegionAddress) bool {
 func (l *Legion) PeerPromoted(address utils.LegionAddress) bool {
 	_, ok := l.promotedPeers.Load(address)
 	return ok
+}
+
+// DoAllPeers runs the function f on all peers
+func (l *Legion) DoAllPeers(f func(p *Peer)) {
+	l.allPeers.Range(func(key, value interface{}) bool {
+		p, ok := value.(*Peer)
+		if ok {
+			f(p)
+		}
+		return true
+	})
+}
+
+// DoPromotedPeers runs the function f on all promoted peers
+func (l *Legion) DoPromotedPeers(f func(p *Peer)) {
+	l.promotedPeers.Range(func(key, value interface{}) bool {
+		p, ok := value.(*Peer)
+		if ok {
+			f(p)
+		}
+		return true
+	})
 }
 
 // RegisterPlugin registers a plugin(s) with the network
