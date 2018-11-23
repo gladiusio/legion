@@ -347,10 +347,16 @@ func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
 	return p, nil
 }
 
-// NewMessage returns a message with the sender field set to the bind address of the network
+// NewMessage returns a message with the sender field set to the bind address of the network and no extra data
 func (l *Legion) NewMessage(messageType string, body []byte) *message.Message {
-	return message.New(l.config.BindAddress, messageType, body)
+	return message.New(l.config.BindAddress, messageType, body, []byte{})
 }
+
+// NewMessage returns a message with the sender field set to the bind address of the network
+func (l *Legion) NewMessageWithData(messageType string, body []byte, data) *message.Message {
+	return message.New(l.config.BindAddress, messageType, body, []byte{})
+}
+
 
 func (l *Legion) handleNewConnection(conn net.Conn) {
 	// Create a new (not stored or dialable) peer. This will be registered with the network

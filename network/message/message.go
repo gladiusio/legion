@@ -17,11 +17,12 @@ var builderPool = sync.Pool{
 }
 
 // New returns a new Message with the specified fields
-func New(sender utils.LegionAddress, messageType string, body []byte) *Message {
+func New(sender utils.LegionAddress, messageType string, body, data []byte) *Message {
 	return &Message{
 		sender:      sender,
 		messageType: messageType,
 		body:        body,
+		data:        data,
 	}
 }
 
@@ -32,6 +33,7 @@ type Message struct {
 	sender      utils.LegionAddress
 	messageType string
 	body        []byte
+	data        []byte
 }
 
 // Sender returns the sender address
@@ -49,6 +51,11 @@ func (m *Message) Body() []byte {
 	return m.body
 }
 
+// Data returns the data field of the message, can be used for signature verifcation etc.
+func (m *Message) Data() []byte {
+	return m.data
+}
+
 // Encode encodes the data as a byte array
 func (m *Message) Encode() []byte {
 	b := builderPool.Get().(*flatbuffers.Builder) // Get a cached or new builder
@@ -59,12 +66,14 @@ func (m *Message) Encode() []byte {
 
 	// Build our fields
 	body := b.CreateByteString(m.body)
+	data := b.CreateByteString(m.data)
 	sender := b.CreateString(m.sender.String())
 	messageType := b.CreateString(m.messageType)
 
 	// Set the fields
 	flatb.MessageStart(b)
 	flatb.MessageAddBody(b, body)
+	flatb.MessageAddData(b, data)
 	flatb.MessageAddSender(b, sender)
 	flatb.MessageAddType(b, messageType)
 
@@ -79,11 +88,12 @@ func (m *Message) Encode() []byte {
 func (m *Message) Decode(buf []byte) error {
 	decoded := flatb.GetRootAsMessage(buf, 0)
 
-	if decoded.BodyBytes() == nil || decoded.Sender() == nil || decoded.Type() == nil {
+	if decoded.BodyBytes() == nil || decoded.Sender() == nil || decoded.Type() == nil || decoded.DataBytes() == nil {
 		return errors.New("message: error unpacking buffer")
 	}
 
 	m.body = decoded.BodyBytes()
+	m.data = decoded.DataBytes()
 	m.sender = utils.LegionAddressFromString(string(decoded.Sender()))
 	m.messageType = string(decoded.Type())
 

@@ -5,6 +5,7 @@ table Message {
   Sender:string;
   Type:string;
   Body:[ubyte];
+  Data:[ubyte];
 }
 
 root_type Message;
