@@ -56,6 +56,11 @@ type Legion struct {
 	listener net.Listener
 }
 
+// Me returns the local bindaddress
+func (l *Legion) Me() utils.LegionAddress {
+	return l.config.BindAddress
+}
+
 // Broadcast sends the message to all writeable peers, unless a
 // specified list of peers is provided
 func (l *Legion) Broadcast(message *message.Message, addresses ...utils.LegionAddress) {
@@ -110,14 +115,17 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
-		p, err := l.createAndDialPeer(address)
-		if err != nil {
-			log.Warn().Field("err", err).Log("Error adding peer")
-			result = multierror.Append(result, err)
-			continue
+		// Make sure the peer isn't already added or ourselves
+		if _, ok := l.allPeers.Load(address); !ok && address != l.Me() {
+			p, err := l.createAndDialPeer(address)
+			if err != nil {
+				log.Warn().Field("err", err).Log("Error adding peer")
+				result = multierror.Append(result, err)
+				continue
+			}
+			l.storePeer(p, false)
+			l.addMessageListener(p, false)
 		}
-		l.storePeer(p, false)
-		l.addMessageListener(p, false)
 	}
 	return result.ErrorOrNil()
 }
@@ -178,6 +186,28 @@ func (l *Legion) PeerPromoted(address utils.LegionAddress) bool {
 	return ok
 }
 
+// DoAllPeers runs the function f on all peers
+func (l *Legion) DoAllPeers(f func(p *Peer)) {
+	l.allPeers.Range(func(key, value interface{}) bool {
+		p, ok := value.(*Peer)
+		if ok {
+			f(p)
+		}
+		return true
+	})
+}
+
+// DoPromotedPeers runs the function f on all promoted peers
+func (l *Legion) DoPromotedPeers(f func(p *Peer)) {
+	l.promotedPeers.Range(func(key, value interface{}) bool {
+		p, ok := value.(*Peer)
+		if ok {
+			f(p)
+		}
+		return true
+	})
+}
+
 // RegisterPlugin registers a plugin(s) with the network
 func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
 	for _, p := range plugins {
@@ -230,7 +260,7 @@ func (l *Legion) Started() {
 // methods based on the event type
 func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *message.Message) {
 	go func() {
-		messageContext := &MessageContext{Legion: l, Message: message} // Create some context for our plugin
+		messageContext := &MessageContext{Legion: l, Message: message, Sender: message.Sender()} // Create some context for our plugin
 		for _, p := range l.plugins {
 			if eventType == events.NewMessageEvent {
 				go p.NewMessage(messageContext)
@@ -323,9 +353,14 @@ func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
 	return p, nil
 }
 
-// NewMessage returns a message with the sender field set to the bind address of the network
+// NewMessage returns a message with the sender field set to the bind address of the network and no extra data
 func (l *Legion) NewMessage(messageType string, body []byte) *message.Message {
-	return message.New(l.config.BindAddress, messageType, body)
+	return message.New(l.config.BindAddress, messageType, body, []byte{})
+}
+
+// NewMessageWithData returns a message with the sender field set to the bind address of the network
+func (l *Legion) NewMessageWithData(messageType string, body, data []byte) *message.Message {
+	return message.New(l.config.BindAddress, messageType, body, []byte{})
 }
 
 func (l *Legion) handleNewConnection(conn net.Conn) {

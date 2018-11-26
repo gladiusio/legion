@@ -147,6 +147,8 @@ zerologger := l.(logger.ZeroLogger).Logger // Get the actual Zerolog instance (c
 
 ### Plugins
 
+#### Writing your own
+
 A plugin is any struct that implements the plugin interface:
 
 ```go
@@ -176,3 +178,15 @@ func (m *MyPlugin) NewMessage(ctx *MessageContext) {
 ```
 
 by doing this, you only need to implement the methods you need and still conform to the interface.
+
+#### Included plugins
+
+Legion includes a few plugins to make your life easier, you can add them like this:
+
+```go
+l := legion.New(conf)
+// Register our simple discovery plugin which sends lists of known peers to newly connected peers, as 
+// well as informing it's peers of the new connection
+l.RegisterPlugin(new(simpledisc.Plugin))
+
+```

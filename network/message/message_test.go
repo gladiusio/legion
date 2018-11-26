@@ -10,7 +10,7 @@ import (
 func BenchmarkWrite(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		buf := New(utils.NewLegionAddress("localhost", 7946), "testmessage", []byte(`test`)).Encode()
+		buf := New(utils.NewLegionAddress("localhost", 7946), "testmessage", []byte(`test`), []byte(`test`)).Encode()
 		if i == 0 {
 			b.SetBytes(int64(len(buf)))
 		}
@@ -18,7 +18,7 @@ func BenchmarkWrite(b *testing.B) {
 }
 
 func BenchmarkRead(b *testing.B) {
-	buf := New(utils.NewLegionAddress("localhost", 7946), "testmessage", []byte(`test`)).Encode()
+	buf := New(utils.NewLegionAddress("localhost", 7946), "testmessage", []byte(`test`), []byte(`test`)).Encode()
 	b.SetBytes(int64(len(buf)))
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -30,7 +30,7 @@ func BenchmarkRead(b *testing.B) {
 }
 
 func TestMessageCreation(t *testing.T) {
-	buf := New(utils.NewLegionAddress("localhost", 7946), "testmessage", []byte(`test`)).Encode()
+	buf := New(utils.NewLegionAddress("localhost", 7946), "testmessage", []byte(`test`), []byte(`test`)).Encode()
 	m := &Message{}
 	err := m.Decode(buf)
 	if err != nil {

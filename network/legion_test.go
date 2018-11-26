@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -166,7 +167,7 @@ func TestPeerConnectionWhenMessageRecieved(t *testing.T) {
 	}
 
 	// Peer 1 sends introduction to peer 2
-	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), lg.legions[1].config.BindAddress)
+	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), lg.legions[1].config.BindAddress)
 
 	time.Sleep(100 * time.Millisecond)
 
@@ -219,7 +220,7 @@ func TestBroadcast(t *testing.T) {
 	lg.legions[0].PromotePeer(lg.legions[1].config.BindAddress)
 	time.Sleep(100 * time.Millisecond)
 
-	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}))
+	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}))
 
 	time.Sleep(200 * time.Millisecond)
 
@@ -248,7 +249,7 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 11)
+	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), 11)
 
 	time.Sleep(300 * time.Millisecond)
 
@@ -277,12 +278,30 @@ func TestBroadcastRandom(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), 5)
+	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), 5)
 
 	time.Sleep(300 * time.Millisecond)
 
 	if count != 5 {
 		t.Errorf("random broadcast was not sent to all peers, should have been 5, was: %d", count)
+	}
+}
+
+func TestDoFunction(t *testing.T) {
+	lg := newLegionGroup(6)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
+
+	var count uint64
+	f := func(p *Peer) { atomic.AddUint64(&count, 1) }
+
+	lg.legions[0].DoAllPeers(f)
+	fmt.Println()
+
+	if count != 5 {
+		t.Errorf("function was not called on all peers, should have been 5, was: %d", count)
 	}
 }
 
@@ -300,7 +319,7 @@ func TestSingleConnectionOpened(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Peer 1 sends introduction to peer 2
-	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}), lg.legions[1].config.BindAddress)
+	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), lg.legions[1].config.BindAddress)
 
 	time.Sleep(300 * time.Millisecond)
 
@@ -311,7 +330,7 @@ func TestSingleConnectionOpened(t *testing.T) {
 	}
 
 	// Peer 2 sends message to peer 1
-	lg.legions[1].Broadcast(message.New(lg.legions[1].config.BindAddress, "test", []byte{}), lg.legions[0].config.BindAddress)
+	lg.legions[1].Broadcast(message.New(lg.legions[1].config.BindAddress, "test", []byte{}, []byte{}), lg.legions[0].config.BindAddress)
 
 	time.Sleep(100 * time.Millisecond)
 

@@ -1,17 +1,21 @@
 package network
 
-import "github.com/gladiusio/legion/network/message"
+import (
+	"github.com/gladiusio/legion/network/message"
+	"github.com/gladiusio/legion/utils"
+)
 
 // MessageContext has context for a given message such as the legion object
 // and methods to interact with the remote peer that sent the message
 type MessageContext struct {
+	Sender  utils.LegionAddress
 	Message *message.Message
 	Legion  *Legion
 }
 
 // Reply is a helper method to reply to an incoming message
 func (mc *MessageContext) Reply(msg *message.Message) {
-	mc.Legion.Broadcast(msg, msg.Sender())
+	mc.Legion.Broadcast(msg, mc.Sender)
 }
 
 // PeerContext has context for a peer event such as the legion object and

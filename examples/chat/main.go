@@ -9,6 +9,7 @@ import (
 
 	"github.com/gladiusio/legion"
 	"github.com/gladiusio/legion/examples/chat/plugin"
+	"github.com/gladiusio/legion/plugins/simpledisc"
 	"github.com/gladiusio/legion/utils"
 )
 
@@ -26,6 +27,7 @@ func main() {
 	conf := legion.DefaultConfig(host, uint16(port))
 	l := legion.New(conf)
 	l.RegisterPlugin(new(plugin.ChatPlugin))
+	l.RegisterPlugin(new(simpledisc.Plugin)) // Add the basic discovery plugin
 	go l.Listen()
 	l.Started()
 
