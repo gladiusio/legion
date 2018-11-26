@@ -37,7 +37,7 @@ allow a user to set your own message validator to check an incoming message, whi
 ## Usage
 
 This should be considered a quick start guide, there are more examples in the
-[examples folder](https://github.com/gladiusio/legion/tree/readme-cleanup/examples) and in the
+[examples folder](https://github.com/gladiusio/legion/tree/master/examples) and in the
 [Gladius Network Gateway](https://github.com/gladiusio/gladius-network-gateway)
 
 ### Basic Usage
