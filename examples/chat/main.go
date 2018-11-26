@@ -27,7 +27,7 @@ func main() {
 	conf := legion.DefaultConfig(host, uint16(port))
 	l := legion.New(conf)
 	l.RegisterPlugin(new(plugin.ChatPlugin))
-	l.RegisterPlugin(new(simpledisc.Plugin))
+	l.RegisterPlugin(new(simpledisc.Plugin)) // Add the basic discovery plugin
 	go l.Listen()
 	l.Started()
 
