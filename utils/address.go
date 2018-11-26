@@ -30,6 +30,14 @@ func (k LegionAddress) String() string {
 	return k.Host + ":" + strconv.Itoa(int(k.Port))
 }
 
+// IsValid returns true if the address is valid, false if not
+func (k LegionAddress) IsValid() bool {
+	if k.Host != "" && k.Port != 0 {
+		return true
+	}
+	return false
+}
+
 func resolveHost(host string) string {
 	return host
 }

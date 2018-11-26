@@ -56,6 +56,11 @@ type Legion struct {
 	listener net.Listener
 }
 
+// Me returns the local bindaddress
+func (l *Legion) Me() utils.LegionAddress {
+	return l.config.BindAddress
+}
+
 // Broadcast sends the message to all writeable peers, unless a
 // specified list of peers is provided
 func (l *Legion) Broadcast(message *message.Message, addresses ...utils.LegionAddress) {
@@ -110,7 +115,8 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
-		if _, ok := l.allPeers.Load(address); !ok { // Make sure the peer isn't already added
+		// Make sure the peer isn't already added or ourselves
+		if _, ok := l.allPeers.Load(address); !ok && address != l.Me() {
 			p, err := l.createAndDialPeer(address)
 			if err != nil {
 				log.Warn().Field("err", err).Log("Error adding peer")
@@ -254,7 +260,7 @@ func (l *Legion) Started() {
 // methods based on the event type
 func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *message.Message) {
 	go func() {
-		messageContext := &MessageContext{Legion: l, Message: message} // Create some context for our plugin
+		messageContext := &MessageContext{Legion: l, Message: message, Sender: message.Sender()} // Create some context for our plugin
 		for _, p := range l.plugins {
 			if eventType == events.NewMessageEvent {
 				go p.NewMessage(messageContext)
@@ -352,11 +358,10 @@ func (l *Legion) NewMessage(messageType string, body []byte) *message.Message {
 	return message.New(l.config.BindAddress, messageType, body, []byte{})
 }
 
-// NewMessage returns a message with the sender field set to the bind address of the network
-func (l *Legion) NewMessageWithData(messageType string, body []byte, data) *message.Message {
+// NewMessageWithData returns a message with the sender field set to the bind address of the network
+func (l *Legion) NewMessageWithData(messageType string, body, data []byte) *message.Message {
 	return message.New(l.config.BindAddress, messageType, body, []byte{})
 }
-
 
 func (l *Legion) handleNewConnection(conn net.Conn) {
 	// Create a new (not stored or dialable) peer. This will be registered with the network
