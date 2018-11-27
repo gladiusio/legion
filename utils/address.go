@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"net"
 	"strconv"
 	"strings"
 )
@@ -15,6 +16,7 @@ func NewLegionAddress(host string, port uint16) LegionAddress {
 func LegionAddressFromString(addrString string) LegionAddress {
 	split := strings.Split(addrString, ":")
 	host := split[0]
+	host = resolveHost(host)
 	port, _ := strconv.Atoi(split[1])
 	return LegionAddress{Host: host, Port: uint16(port)}
 }
@@ -39,5 +41,9 @@ func (k LegionAddress) IsValid() bool {
 }
 
 func resolveHost(host string) string {
-	return host
+	addr, err := net.LookupHost(host)
+	if len(addr) == 0 || err != nil {
+		return host
+	}
+	return addr[0]
 }

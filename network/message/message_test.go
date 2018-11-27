@@ -37,7 +37,7 @@ func TestMessageCreation(t *testing.T) {
 		t.Error(err)
 	}
 
-	if m.Sender().String() != "localhost:7946" || m.Type() != "testmessage" || !bytes.Equal(m.Body(), []byte(`test`)) {
+	if m.Sender().String() != "127.0.0.1:7946" || m.Type() != "testmessage" || !bytes.Equal(m.Body(), []byte(`test`)) || !bytes.Equal(m.Data(), []byte(`test`)) {
 		t.Error("message not correctly decoded")
 	}
 }
