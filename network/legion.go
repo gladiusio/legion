@@ -237,6 +237,7 @@ func (l *Legion) Listen() error {
 	for {
 		conn, err := l.listener.Accept()
 		if err != nil {
+			log.Warn().Field("err", err).Log("Error accepting new connection")
 			continue
 		}
 
