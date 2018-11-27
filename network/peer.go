@@ -171,7 +171,7 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 	for numBytesRead < 4 {
 		n, err := stream.Read(buffer)
 		if err != nil {
-			// TODO: Log error
+			logger.Debug().Field("err", err).Log("Error reading message header")
 			return
 		}
 
@@ -191,7 +191,7 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 	for numBytesRead < int(size) {
 		n, err := stream.Read(buffer[numBytesRead:]) // Make sure we don't write over anthing
 		if err != nil {
-			// TODO: Log error
+			logger.Debug().Field("err", err).Log("Error reading message")
 			return
 		}
 		numBytesRead += n
