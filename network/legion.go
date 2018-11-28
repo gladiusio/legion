@@ -92,7 +92,7 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 	addrs := make([]utils.LegionAddress, 0, 100)
 	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.LegionAddress)); return true })
 
-	if n > len(addrs) {
+	if n > len(addrs) || n <= 1 {
 		l.Broadcast(message)
 		return
 	}
