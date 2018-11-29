@@ -27,7 +27,8 @@ func main() {
 	conf := legion.DefaultConfig(host, uint16(port))
 	l := legion.New(conf)
 	l.RegisterPlugin(new(plugin.ChatPlugin))
-	l.RegisterPlugin(new(simpledisc.Plugin)) // Add the basic discovery plugin
+	disc := new(simpledisc.Plugin)
+	l.RegisterPlugin(disc) // Add the basic discovery plugin
 	go l.Listen()
 	l.Started()
 
@@ -37,6 +38,9 @@ func main() {
 			panic(err)
 		}
 	}
+
+	// Reach out to the peers we just connected to
+	disc.Bootstrap()
 
 	reader := bufio.NewReader(os.Stdin)
 	for {

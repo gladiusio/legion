@@ -2,7 +2,6 @@ package simpledisc
 
 import (
 	"encoding/json"
-	"time"
 
 	"github.com/gladiusio/legion/logger"
 	"github.com/gladiusio/legion/network"
@@ -12,20 +11,24 @@ import (
 // Plugin is a plugin to discover other nodes in a simple way
 type Plugin struct {
 	network.GenericPlugin
+	l *network.Legion
 }
 
 // Compile time assertion that the plugin meets the interface requirements
 var _ network.PluginInterface = (*Plugin)(nil)
 
-// Startup is called once the network has started
+// Startup is called when the network starts up
 func (p *Plugin) Startup(ctx *network.NetworkContext) {
-	go func() {
-		// Block until the network has started
-		ctx.Legion.Started()
-		time.Sleep(1 * time.Second)
+	p.l = ctx.Legion
+}
 
-		// Ask any peers we're connected to for their list of peers
-		ctx.Legion.Broadcast(ctx.Legion.NewMessage("new_peer_intro", []byte{}))
+// Bootstrap reaches out to all connected peers and asks them for
+// information about other peers
+func (p *Plugin) Bootstrap() {
+	go func() {
+		if p.l != nil {
+			p.l.Broadcast(p.l.NewMessage("new_peer_intro", []byte{}))
+		}
 	}()
 }
 
@@ -38,13 +41,15 @@ func (p *Plugin) NewMessage(ctx *network.MessageContext) {
 		if err != nil {
 			return
 		}
+		connectedPeers := make([]string, 0)
 		for _, p := range peerList {
 			addr := utils.LegionAddressFromString(p)
-			if addr.IsValid() {
+			if addr.IsValid() && addr != ctx.Legion.Me() {
 				go ctx.Legion.AddPeer(addr)
+				connectedPeers = append(connectedPeers, p)
 			}
 		}
-		logger.Info().Field("peers", peerList).Log("Connected to peers")
+		logger.Info().Field("peers", connectedPeers).Log("Connected to peers")
 	} else if mType == "new_peer" {
 		// Add the peer as promoted
 		addr := utils.LegionAddressFromString(string(ctx.Message.Body()))

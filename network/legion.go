@@ -138,7 +138,7 @@ func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 	for _, address := range addresses {
 		if p, ok := l.allPeers.Load(address); ok { // If the peer exists, we add it to the promoted peers
 			l.storePeer(p.(*Peer), true)
-			l.FirePeerEvent(events.PeerPromotionEvent, p.(*Peer))
+			l.FirePeerEvent(events.PeerPromotionEvent, p.(*Peer), false)
 		} else { // If not we create a new peer and dial it
 			p, err := l.createAndDialPeer(address)
 			if err != nil {
@@ -147,8 +147,8 @@ func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
 			}
 			l.storePeer(p, true)
 			l.addMessageListener(p, false)
-			l.FirePeerEvent(events.PeerAddEvent, p)
-			l.FirePeerEvent(events.PeerPromotionEvent, p)
+			l.FirePeerEvent(events.PeerAddEvent, p, false)
+			l.FirePeerEvent(events.PeerPromotionEvent, p, false)
 		}
 	}
 	return result.ErrorOrNil()
@@ -271,12 +271,13 @@ func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *messag
 
 // FirePeerEvent fires a peer event and sends context to the correct plugin methods
 // based on the event type
-func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer) {
+func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer, isIncoming bool) {
 	go func() {
 		// Create some context for our plugin
 		peerContext := &PeerContext{
-			Legion: l,
-			Peer:   peer,
+			Legion:     l,
+			Peer:       peer,
+			IsIncoming: isIncoming,
 		}
 		// Tell all of the plugins about the event
 		for _, p := range l.plugins {
@@ -313,7 +314,7 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 			return func() {
 				p.remote = sender
 				l.storePeer(p, false)
-				l.FirePeerEvent(events.PeerAddEvent, p)
+				l.FirePeerEvent(events.PeerAddEvent, p, true)
 			}
 		}
 		for {
@@ -326,6 +327,8 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 					// this is so we can get a the actual sender and store it
 					if incoming {
 						once.Do(storePeer(m.Sender()))
+					} else {
+						once.Do(func() { l.FirePeerEvent(events.PeerAddEvent, p, false) })
 					}
 				}
 			}
@@ -398,7 +401,7 @@ func (l *Legion) storePeer(p *Peer, promoted bool) {
 		l.promotedPeers.Delete(p.remote)
 
 		// Only fire this once (not in storePromotedPeer)
-		l.FirePeerEvent(events.PeerDisconnectEvent, p)
+		l.FirePeerEvent(events.PeerDisconnectEvent, p, true)
 		log.Debug().Field("remote_addr", p.Remote().String()).Log("Peer disconnected")
 	}()
 }
