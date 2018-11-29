@@ -21,8 +21,9 @@ func (mc *MessageContext) Reply(msg *message.Message) {
 // PeerContext has context for a peer event such as the legion object and
 // the peer change that fired the event
 type PeerContext struct {
-	Legion *Legion
-	Peer   *Peer
+	Legion     *Legion
+	Peer       *Peer
+	IsIncoming bool
 }
 
 // NetworkContext is general context of the network, gives access to just
