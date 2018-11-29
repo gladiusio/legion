@@ -20,6 +20,7 @@ func New(c *config.LegionConfig) *network.Legion {
 func DefaultConfig(bindAddress string, port uint16) *config.LegionConfig {
 	return &config.LegionConfig{
 		BindAddress:      utils.NewLegionAddress(bindAddress, port),
+		AdvertiseAddress: utils.NewLegionAddress(bindAddress, port),
 		MessageValidator: func(m *message.Message) bool { return true },
 	}
 }
