@@ -16,6 +16,7 @@ import (
 func makeConfig(port uint16) *config.LegionConfig {
 	return &config.LegionConfig{
 		BindAddress:      utils.NewLegionAddress("localhost", port),
+		AdvertiseAddress: utils.NewLegionAddress("localhost", port),
 		MessageValidator: func(m *message.Message) bool { return true },
 	}
 }
@@ -335,7 +336,7 @@ func TestSingleConnectionOpened(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	peerCount = 0
-	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; fmt.Println(key); return true })
 	if peerCount != 1 {
 		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
