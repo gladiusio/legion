@@ -45,7 +45,7 @@ func (p *Plugin) NewMessage(ctx *network.MessageContext) {
 		for _, p := range peerList {
 			addr := utils.LegionAddressFromString(p)
 			if addr.IsValid() && addr != ctx.Legion.Me() {
-				go ctx.Legion.AddPeer(addr)
+				go ctx.Legion.PromotePeer(addr)
 				connectedPeers = append(connectedPeers, p)
 			}
 		}
@@ -59,8 +59,8 @@ func (p *Plugin) NewMessage(ctx *network.MessageContext) {
 	} else if mType == "new_peer_intro" {
 		logger.Info().Field("peer:", ctx.Message.Sender()).Log("New peer introduction")
 		// Tell all of our peers about the newly connected peer
-		peerBytes := []byte(ctx.Message.Sender().String())
-		ctx.Legion.Broadcast(ctx.Legion.NewMessage("new_peer", peerBytes))
+		//peerBytes := []byte(ctx.Message.Sender().String())
+		//ctx.Legion.Broadcast(ctx.Legion.NewMessage("new_peer", peerBytes))
 
 		peerList := make([]string, 0)
 

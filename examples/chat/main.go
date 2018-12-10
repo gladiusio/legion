@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gladiusio/legion"
 	"github.com/gladiusio/legion/examples/chat/plugin"
@@ -38,6 +39,8 @@ func main() {
 			panic(err)
 		}
 	}
+
+	time.Sleep(100 * time.Millisecond)
 
 	// Reach out to the peers we just connected to
 	disc.Bootstrap()
