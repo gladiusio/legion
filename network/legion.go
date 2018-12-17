@@ -317,9 +317,11 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 				l.FirePeerEvent(events.PeerAddEvent, p, true)
 			}
 		}
+		// Get our reveive channel
+		receiveChan := p.IncomingMessages()
 		for {
 			select {
-			case m := <-p.IncomingMessages():
+			case m := <-receiveChan:
 				// Call whatever validator is registered to see if the message is valid
 				if l.config.MessageValidator(m) {
 					l.FireMessageEvent(events.NewMessageEvent, m)
