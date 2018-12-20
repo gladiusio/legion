@@ -1,6 +1,7 @@
 package network
 
 import (
+	"fmt"
 	"math/rand"
 	"net"
 	"sync"
@@ -321,7 +322,11 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 		receiveChan := p.IncomingMessages()
 		for {
 			select {
-			case m := <-receiveChan:
+			case m, open := <-receiveChan:
+				if !open {
+					fmt.Println("REEE")
+					return
+				}
 				// Call whatever validator is registered to see if the message is valid
 				if l.config.MessageValidator(m) {
 					l.FireMessageEvent(events.NewMessageEvent, m)
@@ -334,6 +339,7 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 					}
 				}
 			}
+
 		}
 	}()
 }
@@ -397,6 +403,8 @@ func (l *Legion) storePeer(p *Peer, promoted bool) {
 	// Wait until that peer is disconnected to remove it
 	go func() {
 		p.BlockUntilDisconnected()
+
+		p.Close()
 
 		// Cleanup both maps
 		l.allPeers.Delete(p.remote)
