@@ -96,6 +96,11 @@ func (p *Peer) CreateServer(conn net.Conn) error {
 
 // Close closes the stream if it exists
 func (p *Peer) Close() error {
+	for _, c := range p.receiveChans {
+		close(c)
+	}
+	close(p.sendQueue)
+
 	return p.session.Close()
 }
 
@@ -108,8 +113,8 @@ func (p *Peer) startSendLoop() {
 	go func() {
 		for {
 			select {
-			case m := <-p.sendQueue:
-				if p.session.IsClosed() {
+			case m, open := <-p.sendQueue:
+				if p.session.IsClosed() || !open {
 					return
 				}
 				go p.sendMessage(m)
