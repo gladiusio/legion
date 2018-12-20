@@ -1,7 +1,6 @@
 package network
 
 import (
-	"fmt"
 	"math/rand"
 	"net"
 	"sync"
@@ -324,7 +323,6 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 			select {
 			case m, open := <-receiveChan:
 				if !open {
-					fmt.Println("REEE")
 					return
 				}
 				// Call whatever validator is registered to see if the message is valid
