@@ -126,6 +126,7 @@ func (p *Peer) startSendLoop() {
 func (p *Peer) sendMessage(m *message.Message) {
 	stream, err := p.session.Open()
 	defer stream.Close()
+
 	if err != nil {
 		logger.Warn().Field("err", err.Error()).Log("peer: error opening connection")
 		return
