@@ -21,13 +21,8 @@ func (p *ChatPlugin) Startup(ctx *network.NetworkContext) {
 // NewMessage is called when a new message is received by the network
 func (p *ChatPlugin) NewMessage(ctx *network.MessageContext) {
 	// First we make sure it is the right type
-	if ctx.Message.Type() == "chat_message" {
+	if ctx.Message.GetType() == "chat_message" {
 		// Then we print it
-		fmt.Printf("[%s] %s", aurora.Blue(ctx.Message.Sender().String()), ctx.Message.Body())
+		fmt.Printf("[%s] %s", aurora.Blue(ctx.Message.GetSender()), string(ctx.Message.GetBody()))
 	}
-}
-
-// PeerAdded is called when a new peer connects or is added
-func (p *ChatPlugin) PeerAdded(ctx *network.PeerContext) {
-	ctx.Legion.PromotePeer(ctx.Peer.Remote())
 }

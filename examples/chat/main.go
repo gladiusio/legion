@@ -10,7 +10,6 @@ import (
 
 	"github.com/gladiusio/legion"
 	"github.com/gladiusio/legion/examples/chat/plugin"
-	"github.com/gladiusio/legion/plugins/simpledisc"
 	"github.com/gladiusio/legion/utils"
 )
 
@@ -26,24 +25,19 @@ func main() {
 	port, _ := strconv.Atoi(splitAddress[1])
 
 	conf := legion.DefaultConfig(host, uint16(port))
-	l := legion.New(conf)
+	l := legion.New(conf, nil)
 	l.RegisterPlugin(new(plugin.ChatPlugin))
-	disc := new(simpledisc.Plugin)
-	l.RegisterPlugin(disc) // Add the basic discovery plugin
 	go l.Listen()
 	l.Started()
 
 	if *remote != "" {
-		err := l.PromotePeer(utils.LegionAddressFromString(*remote))
+		err := l.AddPeer(utils.LegionAddressFromString(*remote))
 		if err != nil {
 			panic(err)
 		}
 	}
 
 	time.Sleep(100 * time.Millisecond)
-
-	// Reach out to the peers we just connected to
-	disc.Bootstrap()
 
 	reader := bufio.NewReader(os.Stdin)
 	for {

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
 )
 
@@ -9,5 +8,4 @@ import (
 type LegionConfig struct {
 	BindAddress      utils.LegionAddress
 	AdvertiseAddress utils.LegionAddress
-	MessageValidator func(*message.Message) bool
 }

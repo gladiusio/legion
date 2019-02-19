@@ -1,7 +1,7 @@
 package network
 
 import (
-	"github.com/gladiusio/legion/network/message"
+	"github.com/gladiusio/legion/network/transport"
 	"github.com/gladiusio/legion/utils"
 )
 
@@ -9,12 +9,12 @@ import (
 // and methods to interact with the remote peer that sent the message
 type MessageContext struct {
 	Sender  utils.LegionAddress
-	Message *message.Message
+	Message *transport.Message
 	Legion  *Legion
 }
 
 // Reply is a helper method to reply to an incoming message
-func (mc *MessageContext) Reply(msg *message.Message) {
+func (mc *MessageContext) Reply(msg *transport.Message) {
 	mc.Legion.Broadcast(msg, mc.Sender)
 }
 

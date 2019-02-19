@@ -6,8 +6,9 @@ import (
 	"net"
 
 	"github.com/gladiusio/legion/logger"
-	"github.com/gladiusio/legion/network/message"
+	"github.com/gladiusio/legion/network/transport"
 	"github.com/gladiusio/legion/utils"
+	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/yamux"
 )
 
@@ -16,8 +17,8 @@ import (
 func NewPeer(remote utils.LegionAddress) *Peer {
 	p := &Peer{
 		remote:       remote,
-		sendQueue:    make(chan *message.Message),
-		receiveChans: make([](chan (*message.Message)), 0, 1),
+		sendQueue:    make(chan *transport.Message),
+		receiveChans: make([](chan (*transport.Message)), 0, 1),
 	}
 
 	return p
@@ -31,10 +32,10 @@ type Peer struct {
 
 	// The internal channel we write to to send a new message
 	// to the remote
-	sendQueue chan *message.Message
+	sendQueue chan *transport.Message
 
 	// The channel of incoming messages
-	receiveChans [](chan *message.Message)
+	receiveChans [](chan *transport.Message)
 
 	// The session with the remote (either incoming or outgoing)
 	session *yamux.Session
@@ -44,13 +45,13 @@ type Peer struct {
 }
 
 // QueueMessage queues the specified message to be sent to the remote
-func (p *Peer) QueueMessage(m *message.Message) {
+func (p *Peer) QueueMessage(m *transport.Message) {
 	go func() { p.sendQueue <- m }()
 }
 
 // IncomingMessages registers a new listen channel and returns it
-func (p *Peer) IncomingMessages() chan *message.Message {
-	r := make(chan *message.Message)
+func (p *Peer) IncomingMessages() chan *transport.Message {
+	r := make(chan *transport.Message)
 	p.receiveChans = append(p.receiveChans, r)
 	return r
 }
@@ -123,8 +124,8 @@ func (p *Peer) startSendLoop() {
 	}()
 }
 
-func (p *Peer) sendMessage(m *message.Message) {
-	stream, err := p.session.Open()
+func (p *Peer) sendMessage(m *transport.Message) {
+	stream, err := p.session.OpenStream()
 	defer stream.Close()
 
 	if err != nil {
@@ -132,7 +133,11 @@ func (p *Peer) sendMessage(m *message.Message) {
 		return
 	}
 
-	messageBytes := m.Encode()
+	messageBytes, err := m.Marshal()
+	if err != nil {
+		logger.Warn().Field("err", err.Error()).Log("peer: error marshalling message")
+		return
+	}
 
 	buffer := make([]byte, 4)
 	binary.BigEndian.PutUint32(buffer, uint32(len(messageBytes)))
@@ -204,8 +209,8 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 		numBytesRead += n
 	}
 	// Unmarshal the message
-	m := &message.Message{}
-	err = m.Decode(buffer)
+	m := &transport.Message{}
+	err = proto.Unmarshal(buffer, m)
 	if err != nil {
 		logger.Debug().Field("remote_peer", stream.RemoteAddr().String()).Log("peer: could not decode incoming message")
 		return
@@ -213,7 +218,7 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 
 	// Send off our message into the receive chans
 	for _, rchan := range p.receiveChans {
-		go func(c chan *message.Message) { c <- m }(rchan)
+		go func(c chan *transport.Message) { c <- m }(rchan)
 	}
 
 }
