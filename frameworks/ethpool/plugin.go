@@ -1,12 +1,12 @@
-package ethdht
+package ethpool
 
 import (
 	"github.com/gladiusio/legion/network"
 )
 
-// Plugin is a plugin that uses Ethereum signing/cryptography and protobufs to build a
+// DHT is a plugin that uses Ethereum signing/cryptography and protobufs to build a
 // kademlia-like DHT for peer messaging and discovery
-type Plugin struct {
+type DHT struct {
 	// Inherit the methods we don't need so we still meet the interface
 	network.GenericPlugin
 
@@ -14,15 +14,15 @@ type Plugin struct {
 }
 
 // Compile time assertion that the plugin meets the interface requirements
-var _ network.PluginInterface = (*Plugin)(nil)
+var _ network.PluginInterface = (*DHT)(nil)
 
 // Startup is called when the network starts up
-func (p *Plugin) Startup(ctx *network.NetworkContext) {
+func (p *DHT) Startup(ctx *network.NetworkContext) {
 	p.l = ctx.Legion
 }
 
 // Bootstrap con
-func (p *Plugin) Bootstrap() {
+func (p *DHT) Bootstrap() {
 	go func() {
 		if p.l != nil {
 			p.l.Broadcast(p.l.NewMessage("new_peer_intro", []byte{}))
@@ -31,7 +31,7 @@ func (p *Plugin) Bootstrap() {
 }
 
 // NewMessage is called when a new message is received by the network
-func (p *Plugin) NewMessage(ctx *network.MessageContext) {
+func (p *DHT) NewMessage(ctx *network.MessageContext) {
 	// Validate the message is of DHT type and warn if not
 
 	// Update the routing table

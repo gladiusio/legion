@@ -2,7 +2,6 @@ package ethpool
 
 import (
 	"github.com/gladiusio/legion/network"
-	"github.com/gladiusio/legion/plugins/ethdht"
 )
 
 // New returns a Framework that uses the specified function to check if an address is valid, if
@@ -30,7 +29,7 @@ func (*Framework) Configure(l *network.Legion) {
 	// Build DHT plugin
 
 	// Register our DHT
-	dht := new(ethdht.Plugin)
+	dht := new(DHT)
 	l.RegisterPlugin(dht)
 
 	// Potentially register plugins todo with state
