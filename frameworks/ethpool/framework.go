@@ -4,6 +4,12 @@ import (
 	"github.com/gladiusio/legion/network"
 )
 
+// IncomingMessage represents an incoming message after parsing
+type IncomingMessage struct {
+	Sender string
+	Body   []byte
+}
+
 // New returns a Framework that uses the specified function to check if an address is valid, if
 // nil all addresses will be considered valid
 func New(addressValidator func(string) bool) *Framework {
@@ -25,10 +31,8 @@ type Framework struct {
 
 // Configure is used to set anything up you want with Legion (loading plugins etc),
 // it is called at startup
-func (*Framework) Configure(l *network.Legion) {
-	// Build DHT plugin
-
-	// Register our DHT
+func (f *Framework) Configure(l *network.Legion) {
+	// Register our DHT plugin
 	dht := new(DHT)
 	l.RegisterPlugin(dht)
 
@@ -36,9 +40,20 @@ func (*Framework) Configure(l *network.Legion) {
 }
 
 // ValidateMessage is called before any message is passed to plugins
-func (*Framework) ValidateMessage(ctx *network.MessageContext) bool { return true }
+func (f *Framework) ValidateMessage(ctx *network.MessageContext) bool { return true }
 
 // Introduce is called a peer is connected to (add or recieve)
-func (*Framework) Introduce(l *network.Legion, p *network.Peer) {
+func (f *Framework) Introduce(l *network.Legion, p *network.Peer) {
 	p.QueueMessage(l.NewMessage("legion_introduction", []byte{}))
+}
+
+// SendMessage will send a signed version of the message to specified recipient
+// it will error if the recipient can't be connected to or found
+func (f *Framework) SendMessage(recipient, messageType string, body []byte) error {
+	return nil
+}
+
+// RecieveMessageChan returns a channel that recieves messages of the specified type
+func (f *Framework) RecieveMessageChan(messageType string) chan *IncomingMessage {
+	return nil
 }
