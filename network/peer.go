@@ -216,6 +216,12 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 		return
 	}
 
+	if utils.LegionAddressFromString(m.Sender).Host != utils.LegionAddressFromString(p.session.RemoteAddr().String()).Host {
+		logger.Debug().Field("reported_address", m.Sender).Field("remote_address", stream.RemoteAddr().String()).Log("peer: mismatched reported address and actual remote, disconnecting...")
+		p.Close()
+		return
+	}
+
 	// Send off our message into the receive chans
 	for _, rchan := range p.receiveChans {
 		go func(c chan *transport.Message) { c <- m }(rchan)
