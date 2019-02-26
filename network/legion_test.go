@@ -27,37 +27,35 @@ func TestLegionCreation(t *testing.T) {
 		t.Error("peers was not initialized")
 	}
 
-	if l.plugins == nil {
-		t.Error("plugin list was not initialized")
+	if l.framework == nil {
+		t.Error("framework was not initialized")
 	}
 }
 
-func TestRegisterPlugin(t *testing.T) {
-	l := NewLegion(makeConfig(6000), nil)
-	p := new(GenericPlugin)
-	l.RegisterPlugin(p)
+func TestFrameowkr(t *testing.T) {
+	l := NewLegion(makeConfig(6000), new(GenericFramework))
 
-	if len(l.plugins) != 1 {
-		t.Errorf("plugin list length should be 1, was %d", len(l.plugins))
+	if l.framework == nil {
+		t.Errorf("framework not added")
 	}
 }
 
-type MessagePlugin struct {
-	GenericPlugin
+type MessageFramework struct {
+	GenericFramework
 	callback func(ctx *MessageContext)
 }
 
-func (m *MessagePlugin) NewMessage(ctx *MessageContext) {
+func (m *MessageFramework) NewMessage(ctx *MessageContext) {
 	m.callback(ctx)
 }
 
 func TestFireMessageEvent(t *testing.T) {
-	l := NewLegion(makeConfig(6000), nil)
 	failed := true
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
 		failed = false
 	}}
-	l.RegisterPlugin(p)
+	l := NewLegion(makeConfig(6000), f)
 
 	l.FireMessageEvent(events.NewMessageEvent, &transport.Message{})
 
@@ -140,6 +138,11 @@ func TestPeerConnection(t *testing.T) {
 		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 
+	// Send introduction
+	lg.legions[0].Broadcast(lg.legions[0].NewMessage("test", []byte{}))
+
+	time.Sleep(100 * time.Millisecond)
+
 	peerCount = 0
 	lg.legions[1].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
@@ -175,20 +178,23 @@ func TestPeerConnectionWhenMessageRecieved(t *testing.T) {
 }
 
 func TestBroadcast(t *testing.T) {
+	failed := true
+
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
+		if ctx.Message.GetType() == "test" {
+			failed = false
+		}
+	}}
+
 	lg := newLegionGroup(2)
 	lg.waitUntilStarted()
 
 	lg.connect()
 	defer lg.stop()
 
-	failed := true
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
-		if ctx.Message.GetType() == "test" {
-			failed = false
-		}
-	}}
+	lg.legions[1].framework = f
 
-	lg.legions[1].RegisterPlugin(p)
+	lg.legions[0].Broadcast(lg.legions[0].NewMessage("intro", []byte{}))
 
 	lg.legions[0].Broadcast(lg.legions[0].NewMessage("test", []byte{}))
 
@@ -207,13 +213,14 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 	defer lg.stop()
 
 	var count uint64
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
 		if ctx.Message.GetType() == "test" {
 			atomic.AddUint64(&count, 1)
 		}
 	}}
+
 	for _, leg := range lg.legions[1:] {
-		leg.RegisterPlugin(p)
+		leg.framework = f
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -235,13 +242,13 @@ func TestBroadcastRandom(t *testing.T) {
 	defer lg.stop()
 
 	var count uint64
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
 		if ctx.Message.GetType() == "test" {
 			atomic.AddUint64(&count, 1)
 		}
 	}}
 	for _, leg := range lg.legions[1:] {
-		leg.RegisterPlugin(p)
+		leg.framework = f
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -271,10 +278,6 @@ func TestDoFunction(t *testing.T) {
 	if count != 5 {
 		t.Errorf("function was not called on all peers, should have been 5, was: %d", count)
 	}
-}
-
-func TestSelfDial(t *testing.T) {
-
 }
 
 func TestSingleConnectionOpened(t *testing.T) {

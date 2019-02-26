@@ -19,12 +19,11 @@ import (
 // NewLegion creates a legion object from a config
 func NewLegion(conf *config.LegionConfig, f Framework) *Legion {
 	if f == nil {
-		log.Warn().Log("legion: using generic framework for validation and introductions")
+		log.Warn().Log("legion: using generic framework for validation")
 		f = &GenericFramework{}
 	}
 	return &Legion{
 		peers:     &sync.Map{},
-		plugins:   make([]PluginInterface, 0),
 		config:    conf,
 		started:   make(chan struct{}),
 		framework: f,
@@ -38,9 +37,6 @@ type Legion struct {
 
 	// Which framework legion is using
 	framework Framework
-
-	// Registered plugins, these are called in order when plugin events happen
-	plugins []PluginInterface
 
 	// Our config type
 	config *config.LegionConfig
@@ -79,7 +75,7 @@ func (l *Legion) Broadcast(message *transport.Message, addresses ...utils.Legion
 	}
 }
 
-// BroadcastRandom broadcasts a message to N random promoted peers
+// BroadcastRandom broadcasts a message to N random peers
 func (l *Legion) BroadcastRandom(message *transport.Message, n int) {
 	// Wait until we're listening
 	l.Started()
@@ -158,20 +154,14 @@ func (l *Legion) DoAllPeers(f func(p *Peer)) {
 	})
 }
 
-// RegisterPlugin registers a plugin(s) with the network
-func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
-	for _, p := range plugins {
-		l.plugins = append(l.plugins, p)
-	}
-}
-
 // Listen will listen on the configured address for incoming connections, it will
 // also wait for all plugin's Startup() methods to return before binding.
 func (l *Legion) Listen() error {
 	// Configure our framework
-	l.framework.Configure(l)
-
-	var err error
+	err := l.framework.Configure(l)
+	if err != nil {
+		return err
+	}
 
 	l.listener, err = net.Listen("tcp", l.config.BindAddress.String())
 	if err != nil {
@@ -213,11 +203,9 @@ func (l *Legion) Started() {
 // methods based on the event type
 func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *transport.Message) {
 	go func() {
-		messageContext := &MessageContext{Legion: l, Message: message, Sender: utils.LegionAddressFromString(message.GetSender())} // Create some context for our plugin
-		for _, p := range l.plugins {
-			if eventType == events.NewMessageEvent {
-				go p.NewMessage(messageContext)
-			}
+		if eventType == events.NewMessageEvent {
+			messageContext := &MessageContext{Legion: l, Message: message, Sender: utils.LegionAddressFromString(message.GetSender())} // Create some context for our plugin
+			go l.framework.NewMessage(messageContext)
 		}
 	}()
 }
@@ -233,15 +221,12 @@ func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer, isIncomin
 			IsIncoming: isIncoming,
 		}
 		// Tell all of the plugins about the event
-		for _, p := range l.plugins {
-			if eventType == events.PeerAddEvent {
-				go p.PeerAdded(peerContext)
-			} else if eventType == events.PeerDisconnectEvent {
-				go p.PeerDisconnect(peerContext)
-			} else if eventType == events.PeerPromotionEvent {
-				go p.PeerPromotion(peerContext)
-			}
+		if eventType == events.PeerAddEvent {
+			go l.framework.PeerAdded(peerContext)
+		} else if eventType == events.PeerDisconnectEvent {
+			go l.framework.PeerDisconnect(peerContext)
 		}
+
 	}()
 }
 
@@ -250,12 +235,10 @@ func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer, isIncomin
 // completed
 func (l *Legion) FireNetworkEvent(eventType events.NetworkEvent) {
 	netContext := &NetworkContext{Legion: l}
-	for _, p := range l.plugins {
-		if eventType == events.StartupEvent {
-			p.Startup(netContext)
-		} else if eventType == events.CloseEvent {
-			p.Close(netContext)
-		}
+	if eventType == events.StartupEvent {
+		l.framework.Startup(netContext)
+	} else if eventType == events.CloseEvent {
+		l.framework.Close(netContext)
 	}
 }
 
@@ -310,9 +293,6 @@ func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
 		conn.Close()
 		return nil, err
 	}
-
-	// Introduce ourselves
-	l.framework.Introduce(l, p)
 
 	return p, nil
 }

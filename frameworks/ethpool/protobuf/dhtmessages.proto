@@ -1,0 +1,22 @@
+syntax = "proto3";
+package protobuf;
+
+message SignedDHTMessage {
+	bytes signature = 1;
+	bytes dhtMessage = 2;
+}
+
+message ID {
+	// Ethereum address
+	bytes ethAddress = 1;
+	// The reachable address of the node
+	string networkAddress = 2;
+}
+
+message DHTMessage {
+	// Sender is the identity this was sent from and how to reach the peer
+	ID sender = 1;
+
+	// Whatever data they want to send
+	bytes body = 2;
+}
