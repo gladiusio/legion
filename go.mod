@@ -16,6 +16,7 @@ require (
 	github.com/rjeczalik/notify v0.9.2 // indirect
 	github.com/rs/zerolog v1.10.0
 	github.com/syndtr/goleveldb v1.0.0 // indirect
+	go.uber.org/atomic v1.3.2
 	golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )

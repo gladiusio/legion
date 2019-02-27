@@ -3,13 +3,17 @@ package network
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"net"
+	"sync"
+	"time"
 
 	"github.com/gladiusio/legion/logger"
 	"github.com/gladiusio/legion/network/transport"
 	"github.com/gladiusio/legion/utils"
 	"github.com/gogo/protobuf/proto"
 	"github.com/hashicorp/yamux"
+	"go.uber.org/atomic"
 )
 
 // NewPeer returns a new peer from the given remote. It also
@@ -40,6 +44,12 @@ type Peer struct {
 	// The session with the remote (either incoming or outgoing)
 	session *yamux.Session
 
+	// The current RPC id we're using
+	rcpID atomic.Uint64
+
+	// Stores the RPC requests by ID
+	requests sync.Map // Uint64 -> chan *transport.Message
+
 	// The disconnected channel, closed when the peer disconnects
 	disconnected chan struct{}
 }
@@ -47,6 +57,44 @@ type Peer struct {
 // QueueMessage queues the specified message to be sent to the remote
 func (p *Peer) QueueMessage(m *transport.Message) {
 	go func() { p.sendQueue <- m }()
+}
+
+// QueueReply queues the specified message to be sent to the remote and appends the desired rpcid
+func (p *Peer) QueueReply(rpcID uint64, m *transport.Message) {
+	go func() {
+		m.RpcId = rpcID
+		m.IsReply = true
+		p.sendQueue <- m
+	}()
+}
+
+// Request will ask a remote peer and wait for the response
+func (p *Peer) Request(timeout time.Duration, m *transport.Message) (*transport.Message, error) {
+	// Create and assign an ID
+	current := p.rcpID.Inc()
+	m.RpcId = current
+	m.IsRequest = true
+
+	// Make a channel to recieve the message
+	receiveChan := make(chan *transport.Message)
+
+	// Store this so the reply message gets written to it
+	p.requests.Store(current, receiveChan)
+
+	// Cleanup when we're done
+	defer p.requests.Delete(current)
+	defer close(receiveChan)
+
+	// Send the message to the remote
+	p.QueueMessage(m)
+
+	// Wait for a response or timeout
+	select {
+	case res := <-receiveChan:
+		return res, nil
+	case <-time.After(timeout):
+		return nil, errors.New("request timed out")
+	}
 }
 
 // IncomingMessages registers a new listen channel and returns it
@@ -61,7 +109,7 @@ func (p *Peer) BlockUntilDisconnected() {
 	<-p.session.CloseChan()
 }
 
-// CreateClient takes an incoming connection and creates a client session from it
+// CreateClient takes an outgoing connection and creates a client session from it
 func (p *Peer) CreateClient(conn net.Conn) error {
 	// Setup client side of yamux
 	session, err := yamux.Client(conn, nil)
@@ -201,7 +249,7 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 	// Read into the buffer
 	numBytesRead = 0
 	for numBytesRead < int(size) {
-		n, err := stream.Read(buffer[numBytesRead:]) // Make sure we don't write over anthing
+		n, err := stream.Read(buffer[numBytesRead:]) // Make sure we don't write over anything
 		if err != nil {
 			logger.Debug().Field("err", err).Log("Error reading message")
 			return
@@ -222,9 +270,13 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 		return
 	}
 
-	// Send off our message into the receive chans
-	for _, rchan := range p.receiveChans {
-		go func(c chan *transport.Message) { c <- m }(rchan)
+	// If this is an RPC response pass it along  to the correct receive channel, if not send it to the
+	// regular message receive channels
+	if respChan, exists := p.requests.Load(m.RpcId); exists && m.IsReply {
+		go func(c chan *transport.Message) { c <- m }(respChan.(chan *transport.Message))
+	} else {
+		for _, rchan := range p.receiveChans {
+			go func(c chan *transport.Message) { c <- m }(rchan)
+		}
 	}
-
 }

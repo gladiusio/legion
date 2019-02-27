@@ -32,7 +32,7 @@ func TestLegionCreation(t *testing.T) {
 	}
 }
 
-func TestFrameowkr(t *testing.T) {
+func TestFramework(t *testing.T) {
 	l := NewLegion(makeConfig(6000), new(GenericFramework))
 
 	if l.framework == nil {
@@ -316,4 +316,46 @@ func TestSingleConnectionOpened(t *testing.T) {
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
+}
+
+func TestRPCMessage(t *testing.T) {
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	var count uint64
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
+		atomic.AddUint64(&count, 1)
+
+		if ctx.Message.GetType() == "test" {
+			ctx.Reply(ctx.Legion.NewMessage("test_reply", []byte{}))
+		}
+		if ctx.Message.GetType() == "test_reply" {
+			t.Error("Reply should not be seen by NewMessage")
+		}
+	}}
+
+	for _, leg := range lg.legions {
+		leg.framework = f
+	}
+
+	resp, err := lg.legions[0].Request(lg.legions[0].NewMessage("test", []byte{}), 10*time.Millisecond, lg.legions[1].config.BindAddress)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if resp.Type != "test_reply" {
+		t.Error("Response type not correct")
+	}
+
+	if count != 1 {
+		t.Errorf("Should have been 1 message processed by framework, was: %d", count)
+	}
+
 }

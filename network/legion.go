@@ -1,6 +1,7 @@
 package network
 
 import (
+	"errors"
 	"math/rand"
 	"net"
 	"sync"
@@ -53,7 +54,7 @@ func (l *Legion) Me() utils.LegionAddress {
 	return l.config.AdvertiseAddress
 }
 
-// Broadcast sends the message to all writeable peers, unless a
+// Broadcast sends the message to all peers, unless a
 // specified list of peers is provided
 func (l *Legion) Broadcast(message *transport.Message, addresses ...utils.LegionAddress) {
 	// Wait until we're listening
@@ -73,6 +74,29 @@ func (l *Legion) Broadcast(message *transport.Message, addresses ...utils.Legion
 			l.AddPeer(address)
 		}
 	}
+}
+
+// Request sends a request message to the specified peer
+func (l *Legion) Request(message *transport.Message, timeout time.Duration, address utils.LegionAddress) (*transport.Message, error) {
+	// Wait until we're listening
+	l.Started()
+
+	if p, ok := l.peers.Load(address); ok {
+		return p.(*Peer).Request(timeout, message)
+	}
+
+	err := l.AddPeer(address)
+	if err != nil {
+		return nil, errors.New("request: error adding new peer")
+
+	}
+	p, exists := l.peers.Load(address)
+	if exists {
+		return p.(*Peer).Request(timeout, message)
+	}
+
+	// We couldn't find the peer (could have disconnected etc)
+	return nil, errors.New("request: error sending request to new peer")
 }
 
 // BroadcastRandom broadcasts a message to N random peers
@@ -168,13 +192,10 @@ func (l *Legion) Listen() error {
 		return err
 	}
 
-	// Signal after a delay we're listening
-	go func() {
-		time.Sleep(1 * time.Second)
-		close(l.started)
-		log.Info().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
-		l.FireNetworkEvent(events.StartupEvent)
-	}()
+	// Signal we're listening
+	close(l.started)
+	log.Info().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
+	l.FireNetworkEvent(events.StartupEvent)
 
 	// Accept incoming TCP connections
 	for {

@@ -7,4 +7,9 @@ message Message {
 
 	string type = 2;
 	bytes body = 3;
+
+	// Used to keep track of RPC messages
+	uint64 rpc_id = 4;
+	bool is_request = 5;
+	bool is_reply = 6;
 }
