@@ -20,3 +20,11 @@ message DHTMessage {
 	// Whatever data they want to send
 	bytes body = 2;
 }
+
+message LookupRequest {
+	ID target = 1;
+}
+
+message LookupResponse {
+	repeated ID peers = 1;
+}

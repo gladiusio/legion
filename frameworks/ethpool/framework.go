@@ -10,8 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gladiusio/legion/frameworks/ethpool/protobuf"
 	"github.com/gladiusio/legion/network"
+	"github.com/gladiusio/legion/utils"
+
 	"github.com/gladiusio/legion/network/transport"
 	"github.com/gogo/protobuf/proto"
+
+	"sort"
+	"time"
 )
 
 // IncomingMessage represents an incoming message after parsing
@@ -158,11 +163,35 @@ func (f *Framework) NewMessage(ctx *network.MessageContext) {
 		}
 		ctx.Reply(m)
 	} else if ctx.Message.Type == "dht.pong" {
-		// Preform lookup (send lookup request)
+		f.respondToPong()
 	} else if ctx.Message.Type == "dht.lookup_request" {
-		// Respond with the closest nodes to the target
-	} else if ctx.Message.Type == "dht.lookup_response" {
-		// Verify response IDs are correct
+		lookupRequestBytes, err := getDHTMessageBody(ctx.Message.Body)
+		if err != nil {
+			return
+		}
+
+		lookupRequest := &protobuf.LookupRequest{}
+		err = lookupRequest.Unmarshal(lookupRequestBytes)
+		if err != nil {
+			return
+		}
+
+		resp := &protobuf.LookupResponse{}
+
+		// Find the closest peers
+		for _, peer := range f.router.FindClosestPeers(ID(*lookupRequest.Target), BucketSize) {
+			id := protobuf.ID(peer)
+			resp.Peers = append(resp.Peers, &id)
+		}
+
+		respBytes, err := resp.Marshal()
+		if err != nil {
+			return
+		}
+
+		m, err := f.makeLegionSignedMessage("dht.lookup_response", respBytes)
+		ctx.Reply(m)
+
 	} else { // Send everything else to the recieve channel
 		f.messageChan <- &IncomingMessage{Sender: dhtMessage.Sender, Body: dhtMessage}
 	}
@@ -174,6 +203,23 @@ func (f *Framework) PeerDisconnect(ctx *network.PeerContext) {
 	if exists {
 		f.router.RemovePeer((id).(ID))
 	}
+}
+
+func getDHTMessageBody(body []byte) ([]byte, error) {
+	sm := &protobuf.SignedDHTMessage{}
+	err := sm.Unmarshal(body)
+	if err != nil {
+		return nil, errors.New("does not look like signed message")
+	}
+
+	// Check to see if the signed Ethereum Address matches sender
+	m := &protobuf.DHTMessage{}
+	err = m.Unmarshal(sm.DhtMessage)
+	if err != nil {
+		return nil, errors.New("signed message body does not look like dht message")
+	}
+
+	return m.Body, nil
 }
 
 func (f *Framework) makeLegionSignedMessage(mType string, m []byte) (*transport.Message, error) {
@@ -205,4 +251,87 @@ func (f *Framework) makeLegionSignedMessage(mType string, m []byte) (*transport.
 	}
 
 	return f.l.NewMessage(mType, signedBytes), nil
+}
+
+func (f *Framework) respondToPong() {
+	// Find peers neer us
+	peers, err := f.findPeers(*f.self, BucketSize)
+	if err != nil {
+		return
+	}
+
+	for _, p := range peers {
+		f.router.Update(*p)
+	}
+
+	// Next we should ask for a far peer and update
+}
+
+// Find the peers closest to the ethereum address given
+func (f *Framework) findPeers(target ID, count int) ([]*ID, error) {
+	// Get our currently connected peers and ask them for the closest to the target
+	wg, mux := &sync.WaitGroup{}, &sync.Mutex{}
+	peers := make([]*ID, 0)
+
+	for _, peerID := range f.router.FindClosestPeers(target, count) {
+		tID := protobuf.ID(target)
+		lookupRequest := &protobuf.LookupRequest{Target: &tID}
+		b, err := lookupRequest.Marshal()
+		if err != nil {
+			return nil, err
+		}
+		m, err := f.makeLegionSignedMessage("dht.lookup_request", b)
+		if err != nil {
+			return nil, err
+		}
+
+		// Preform the lookup
+		go func(p ID) {
+			wg.Add(1)
+			defer wg.Done()
+
+			incoming, err := f.l.Request(m, time.Second, utils.LegionAddressFromString(p.NetworkAddress))
+			if err != nil {
+				return
+			}
+
+			responseBytes, err := getDHTMessageBody(incoming.Body)
+			if err != nil {
+				return
+			}
+
+			lookupResponse := &protobuf.LookupResponse{}
+			err = lookupResponse.Unmarshal(responseBytes)
+			if err != nil {
+				return
+			}
+			// Convert the type
+			toAppend := make([]*ID, len(lookupResponse.GetPeers()))
+			for i, id := range lookupResponse.GetPeers() {
+				toAppend[i] = (*ID)(id)
+			}
+
+			mux.Lock()
+			peers = append(peers, toAppend...)
+			mux.Unlock()
+		}(peerID)
+	}
+
+	wg.Wait()
+
+	// Sort resulting peers by XOR distance.
+	sort.Slice(peers, func(i, j int) bool {
+		left := peers[i].Xor(target)
+		right := peers[j].Xor(target)
+		return left.Less(right)
+	})
+
+	// Cut off list of results to only have the routing table focus on the
+	// #dht.BucketSize closest peers to the current node.
+	if len(peers) > BucketSize {
+		peers = peers[:BucketSize]
+	}
+
+	return peers, nil
+
 }

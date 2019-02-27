@@ -31,7 +31,7 @@ func (m *SignedDHTMessage) Reset()         { *m = SignedDHTMessage{} }
 func (m *SignedDHTMessage) String() string { return proto.CompactTextString(m) }
 func (*SignedDHTMessage) ProtoMessage()    {}
 func (*SignedDHTMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dhtmessages_d112bd1b379fe9e0, []int{0}
+	return fileDescriptor_dhtmessages_a787c4297ab9d019, []int{0}
 }
 func (m *SignedDHTMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -87,7 +87,7 @@ func (m *ID) Reset()         { *m = ID{} }
 func (m *ID) String() string { return proto.CompactTextString(m) }
 func (*ID) ProtoMessage()    {}
 func (*ID) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dhtmessages_d112bd1b379fe9e0, []int{1}
+	return fileDescriptor_dhtmessages_a787c4297ab9d019, []int{1}
 }
 func (m *ID) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -143,7 +143,7 @@ func (m *DHTMessage) Reset()         { *m = DHTMessage{} }
 func (m *DHTMessage) String() string { return proto.CompactTextString(m) }
 func (*DHTMessage) ProtoMessage()    {}
 func (*DHTMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_dhtmessages_d112bd1b379fe9e0, []int{2}
+	return fileDescriptor_dhtmessages_a787c4297ab9d019, []int{2}
 }
 func (m *DHTMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -186,10 +186,104 @@ func (m *DHTMessage) GetBody() []byte {
 	return nil
 }
 
+type LookupRequest struct {
+	Target               *ID      `protobuf:"bytes,1,opt,name=target" json:"target,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *LookupRequest) Reset()         { *m = LookupRequest{} }
+func (m *LookupRequest) String() string { return proto.CompactTextString(m) }
+func (*LookupRequest) ProtoMessage()    {}
+func (*LookupRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dhtmessages_a787c4297ab9d019, []int{3}
+}
+func (m *LookupRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LookupRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LookupRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *LookupRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LookupRequest.Merge(dst, src)
+}
+func (m *LookupRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *LookupRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_LookupRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LookupRequest proto.InternalMessageInfo
+
+func (m *LookupRequest) GetTarget() *ID {
+	if m != nil {
+		return m.Target
+	}
+	return nil
+}
+
+type LookupResponse struct {
+	Peers                []*ID    `protobuf:"bytes,1,rep,name=peers" json:"peers,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *LookupResponse) Reset()         { *m = LookupResponse{} }
+func (m *LookupResponse) String() string { return proto.CompactTextString(m) }
+func (*LookupResponse) ProtoMessage()    {}
+func (*LookupResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_dhtmessages_a787c4297ab9d019, []int{4}
+}
+func (m *LookupResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LookupResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LookupResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *LookupResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LookupResponse.Merge(dst, src)
+}
+func (m *LookupResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *LookupResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_LookupResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LookupResponse proto.InternalMessageInfo
+
+func (m *LookupResponse) GetPeers() []*ID {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*SignedDHTMessage)(nil), "protobuf.SignedDHTMessage")
 	proto.RegisterType((*ID)(nil), "protobuf.ID")
 	proto.RegisterType((*DHTMessage)(nil), "protobuf.DHTMessage")
+	proto.RegisterType((*LookupRequest)(nil), "protobuf.LookupRequest")
+	proto.RegisterType((*LookupResponse)(nil), "protobuf.LookupResponse")
 }
 func (m *SignedDHTMessage) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -285,6 +379,64 @@ func (m *DHTMessage) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *LookupRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LookupRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Target != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintDhtmessages(dAtA, i, uint64(m.Target.Size()))
+		n2, err := m.Target.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n2
+	}
+	return i, nil
+}
+
+func (m *LookupResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LookupResponse) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Peers) > 0 {
+		for _, msg := range m.Peers {
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintDhtmessages(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
 func encodeVarintDhtmessages(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -332,6 +484,28 @@ func (m *DHTMessage) Size() (n int) {
 	l = len(m.Body)
 	if l > 0 {
 		n += 1 + l + sovDhtmessages(uint64(l))
+	}
+	return n
+}
+
+func (m *LookupRequest) Size() (n int) {
+	var l int
+	_ = l
+	if m.Target != nil {
+		l = m.Target.Size()
+		n += 1 + l + sovDhtmessages(uint64(l))
+	}
+	return n
+}
+
+func (m *LookupResponse) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.Peers) > 0 {
+		for _, e := range m.Peers {
+			l = e.Size()
+			n += 1 + l + sovDhtmessages(uint64(l))
+		}
 	}
 	return n
 }
@@ -685,6 +859,170 @@ func (m *DHTMessage) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *LookupRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDhtmessages
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LookupRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LookupRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Target", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDhtmessages
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDhtmessages
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Target == nil {
+				m.Target = &ID{}
+			}
+			if err := m.Target.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDhtmessages(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthDhtmessages
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LookupResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDhtmessages
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LookupResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LookupResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Peers", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDhtmessages
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDhtmessages
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Peers = append(m.Peers, &ID{})
+			if err := m.Peers[len(m.Peers)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDhtmessages(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthDhtmessages
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipDhtmessages(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -791,24 +1129,27 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("frameworks/ethpool/protobuf/dhtmessages.proto", fileDescriptor_dhtmessages_d112bd1b379fe9e0)
+	proto.RegisterFile("frameworks/ethpool/protobuf/dhtmessages.proto", fileDescriptor_dhtmessages_a787c4297ab9d019)
 }
 
-var fileDescriptor_dhtmessages_d112bd1b379fe9e0 = []byte{
-	// 230 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xd2, 0x4d, 0x2b, 0x4a, 0xcc,
-	0x4d, 0x2d, 0xcf, 0x2f, 0xca, 0x2e, 0xd6, 0x4f, 0x2d, 0xc9, 0x28, 0xc8, 0xcf, 0xcf, 0xd1, 0x2f,
-	0x28, 0xca, 0x2f, 0xc9, 0x4f, 0x2a, 0x4d, 0xd3, 0x4f, 0xc9, 0x28, 0xc9, 0x4d, 0x2d, 0x2e, 0x4e,
-	0x4c, 0x4f, 0x2d, 0xd6, 0x03, 0x0b, 0x0a, 0x71, 0xc0, 0xe4, 0x94, 0x02, 0xb8, 0x04, 0x82, 0x33,
-	0xd3, 0xf3, 0x52, 0x53, 0x5c, 0x3c, 0x42, 0x7c, 0x21, 0x8a, 0x84, 0x64, 0xb8, 0x38, 0x8b, 0x33,
-	0xd3, 0xf3, 0x12, 0x4b, 0x4a, 0x8b, 0x52, 0x25, 0x18, 0x15, 0x18, 0x35, 0x78, 0x82, 0x10, 0x02,
-	0x42, 0x72, 0x5c, 0x5c, 0x29, 0x19, 0x25, 0x50, 0xb5, 0x12, 0x4c, 0x60, 0x69, 0x24, 0x11, 0x25,
-	0x1f, 0x2e, 0x26, 0x4f, 0x17, 0x90, 0xaa, 0xd4, 0x92, 0x0c, 0xc7, 0x94, 0x94, 0xa2, 0xd4, 0xe2,
-	0x62, 0xa8, 0x21, 0x48, 0x22, 0x42, 0x6a, 0x5c, 0x7c, 0x79, 0xa9, 0x25, 0x20, 0x07, 0xc3, 0xd4,
-	0x80, 0x4c, 0xe2, 0x0c, 0x42, 0x13, 0x55, 0x72, 0xe3, 0xe2, 0x42, 0x72, 0x99, 0x0a, 0x17, 0x5b,
-	0x71, 0x6a, 0x5e, 0x4a, 0x6a, 0x11, 0xd8, 0x44, 0x6e, 0x23, 0x1e, 0x3d, 0x98, 0x47, 0xf4, 0x3c,
-	0x5d, 0x82, 0xa0, 0x72, 0x42, 0x42, 0x5c, 0x2c, 0x49, 0xf9, 0x29, 0x95, 0x50, 0xb7, 0x81, 0xd9,
-	0x4e, 0x02, 0x27, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0xf8, 0xe0, 0x91, 0x1c, 0xe3, 0x84,
-	0xc7, 0x72, 0x0c, 0x49, 0x6c, 0x60, 0xad, 0xc6, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0xae, 0xa2,
-	0x6b, 0xd9, 0x3b, 0x01, 0x00, 0x00,
+var fileDescriptor_dhtmessages_a787c4297ab9d019 = []byte{
+	// 280 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x8f, 0x5f, 0x4a, 0xf3, 0x40,
+	0x14, 0xc5, 0xbf, 0xf4, 0xd3, 0x62, 0xaf, 0xb5, 0x94, 0x79, 0xea, 0x83, 0x04, 0x19, 0x44, 0x7c,
+	0x31, 0x01, 0xff, 0x2c, 0x40, 0x09, 0x62, 0xa1, 0x82, 0x44, 0x37, 0x90, 0x30, 0xb7, 0x49, 0xa9,
+	0xcd, 0xc4, 0xb9, 0x37, 0x88, 0xbb, 0x70, 0x59, 0x3e, 0xba, 0x04, 0x89, 0x1b, 0x91, 0x99, 0x24,
+	0x18, 0xd4, 0xb7, 0xe1, 0x9c, 0xdf, 0xfc, 0x38, 0x17, 0x4e, 0x96, 0x26, 0xd9, 0xe0, 0xb3, 0x36,
+	0x6b, 0x0a, 0x91, 0xf3, 0x52, 0xeb, 0xc7, 0xb0, 0x34, 0x9a, 0x75, 0x5a, 0x2d, 0x43, 0x95, 0xf3,
+	0x06, 0x89, 0x92, 0x0c, 0x29, 0x70, 0xa1, 0xd8, 0xe9, 0x3a, 0x79, 0x07, 0xd3, 0xfb, 0x55, 0x56,
+	0xa0, 0x8a, 0x6e, 0x1e, 0x6e, 0x1b, 0x48, 0xec, 0xc3, 0x88, 0x56, 0x59, 0x91, 0x70, 0x65, 0x70,
+	0xe6, 0x1d, 0x78, 0xc7, 0xe3, 0xf8, 0x3b, 0x10, 0x3e, 0x80, 0xca, 0xb9, 0x65, 0x67, 0x03, 0x57,
+	0xf7, 0x12, 0xb9, 0x80, 0xc1, 0x3c, 0xb2, 0x14, 0x72, 0x7e, 0xa9, 0x94, 0x41, 0xa2, 0x56, 0xd2,
+	0x4b, 0xc4, 0x11, 0x4c, 0x0a, 0x64, 0x3b, 0xb8, 0x63, 0xac, 0x69, 0x14, 0xff, 0x48, 0xe5, 0x35,
+	0x40, 0x6f, 0xd9, 0x21, 0x0c, 0x09, 0x0b, 0x85, 0xc6, 0x19, 0x77, 0x4f, 0xc7, 0x41, 0x77, 0x48,
+	0x30, 0x8f, 0xe2, 0xb6, 0x13, 0x02, 0xb6, 0x52, 0xad, 0x5e, 0xda, 0x6d, 0xee, 0x2d, 0x2f, 0x60,
+	0x6f, 0xa1, 0xf5, 0xba, 0x2a, 0x63, 0x7c, 0xaa, 0x90, 0xd8, 0xaa, 0x38, 0x31, 0x19, 0xf2, 0xdf,
+	0xaa, 0xa6, 0x93, 0xe7, 0x30, 0xe9, 0xbe, 0x51, 0xa9, 0x0b, 0x42, 0x21, 0x61, 0xbb, 0x44, 0x34,
+	0xf6, 0xa6, 0xff, 0xbf, 0xbe, 0x35, 0xd5, 0xd5, 0xf4, 0xad, 0xf6, 0xbd, 0xf7, 0xda, 0xf7, 0x3e,
+	0x6a, 0xdf, 0x7b, 0xfd, 0xf4, 0xff, 0xa5, 0x43, 0x47, 0x9d, 0x7d, 0x05, 0x00, 0x00, 0xff, 0xff,
+	0x57, 0x2e, 0x27, 0x11, 0xa8, 0x01, 0x00, 0x00,
 }
