@@ -40,7 +40,7 @@ func (lg *frameworkGroup) makeFrameworks(n int) {
 			panic(err)
 		}
 		f := New(func(string) bool { return true }, privKey)
-		l := network.NewLegion(makeConfig(6000+uint16(i)), f)
+		l := network.NewLegion(makeConfig(7000+uint16(i)), f)
 		go func() {
 			err := l.Listen()
 			if err != nil {
@@ -103,6 +103,8 @@ func TestBootstrap(t *testing.T) {
 			t.Errorf("Incorrect number of peers, should have been 2, was %d", len(peers))
 		}
 	}
+
+	fg.stop()
 }
 
 func TestMessaging(t *testing.T) {
@@ -143,4 +145,7 @@ L:
 	if !received {
 		t.Error("Recipient never got message")
 	}
+
+	fg.stop()
+
 }
