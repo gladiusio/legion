@@ -3,7 +3,7 @@ package network
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -20,9 +20,10 @@ import (
 // sets up the reading and writing channels
 func NewPeer(remote utils.LegionAddress) *Peer {
 	p := &Peer{
-		remote:       remote,
-		sendQueue:    make(chan *transport.Message),
-		receiveChans: make([](chan (*transport.Message)), 0, 1),
+		remote:      remote,
+		sendQueue:   make(chan *transport.Message),
+		receiveChan: make(chan (*transport.Message)),
+		requests:    make(map[uint64]chan *transport.Message),
 	}
 
 	return p
@@ -39,7 +40,7 @@ type Peer struct {
 	sendQueue chan *transport.Message
 
 	// The channel of incoming messages
-	receiveChans [](chan *transport.Message)
+	receiveChan chan *transport.Message
 
 	// The session with the remote (either incoming or outgoing)
 	session *yamux.Session
@@ -48,7 +49,8 @@ type Peer struct {
 	rcpID atomic.Uint64
 
 	// Stores the RPC requests by ID
-	requests sync.Map // Uint64 -> chan *transport.Message
+	requests    map[uint64]chan *transport.Message // Uint64 -> chan *transport.Message
+	requestsMux sync.Mutex
 
 	// The disconnected channel, closed when the peer disconnects
 	disconnected chan struct{}
@@ -79,11 +81,15 @@ func (p *Peer) Request(timeout time.Duration, m *transport.Message) (*transport.
 	receiveChan := make(chan *transport.Message)
 
 	// Store this so the reply message gets written to it
-	p.requests.Store(current, receiveChan)
+	p.requestsMux.Lock()
+	p.requests[current] = receiveChan
+	p.requestsMux.Unlock()
 
 	// Cleanup when we're done
-	defer p.requests.Delete(current)
-	defer close(receiveChan)
+	//defer p.requests.Delete(current)
+	//defer close(receiveChan)
+
+	// logger.Info().Field("type", m.Type).Field("is_reply", m.IsReply).Field("remote", p.remote.String()).Log("sent message")
 
 	// Send the message to the remote
 	p.QueueMessage(m)
@@ -93,15 +99,13 @@ func (p *Peer) Request(timeout time.Duration, m *transport.Message) (*transport.
 	case res := <-receiveChan:
 		return res, nil
 	case <-time.After(timeout):
-		return nil, errors.New("request timed out")
+		return nil, fmt.Errorf("request timed out with timout: %s, request type: %s, request channel: %d, remote: %s", timeout.String(), m.Type, m.RpcId, p.remote.String())
 	}
 }
 
 // IncomingMessages registers a new listen channel and returns it
 func (p *Peer) IncomingMessages() chan *transport.Message {
-	r := make(chan *transport.Message)
-	p.receiveChans = append(p.receiveChans, r)
-	return r
+	return p.receiveChan
 }
 
 // BlockUntilDisconnected blocks until the remote is disconnected
@@ -145,9 +149,7 @@ func (p *Peer) CreateServer(conn net.Conn) error {
 
 // Close closes the stream if it exists
 func (p *Peer) Close() error {
-	for _, c := range p.receiveChans {
-		close(c)
-	}
+	close(p.receiveChan)
 	close(p.sendQueue)
 
 	return p.session.Close()
@@ -272,11 +274,16 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 
 	// If this is an RPC response pass it along  to the correct receive channel, if not send it to the
 	// regular message receive channels
-	if respChan, exists := p.requests.Load(m.RpcId); exists && m.IsReply {
-		go func(c chan *transport.Message) { c <- m }(respChan.(chan *transport.Message))
-	} else {
-		for _, rchan := range p.receiveChans {
-			go func(c chan *transport.Message) { c <- m }(rchan)
+	if m.IsReply {
+		p.requestsMux.Lock()
+		respChan, exists := p.requests[m.RpcId]
+		p.requestsMux.Unlock()
+		if exists {
+			go func(c chan *transport.Message) { c <- m }(respChan)
+		} else {
+			logger.Warn().Field("type", m.Type).Field("local", p.session.LocalAddr().String()).Field("channel_id", m.RpcId).Field("remote", p.remote.String()).Log("Got response to nonexistant RPC channel")
 		}
+	} else {
+		go func(c chan *transport.Message) { c <- m }(p.receiveChan)
 	}
 }

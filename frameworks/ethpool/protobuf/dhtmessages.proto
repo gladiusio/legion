@@ -28,3 +28,5 @@ message LookupRequest {
 message LookupResponse {
 	repeated ID peers = 1;
 }
+
+message Empty {}

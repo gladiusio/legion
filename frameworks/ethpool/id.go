@@ -41,6 +41,11 @@ func (id ID) AddressHex() string {
 	return hex.EncodeToString(id.EthAddress)
 }
 
+// EthereumAddress returns the Ethereum address representation of the ID
+func (id ID) EthereumAddress() common.Address {
+	return common.HexToAddress(id.AddressHex())
+}
+
 // Xor performs XOR (^) over another peer ID's public key.
 func (id ID) Xor(other ID) ID {
 	result := make([]byte, len(id.EthAddress))

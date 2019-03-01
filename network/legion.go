@@ -71,7 +71,15 @@ func (l *Legion) Broadcast(message *transport.Message, addresses ...utils.Legion
 		if p, ok := l.peers.Load(address); ok {
 			p.(*Peer).QueueMessage(message)
 		} else {
-			l.AddPeer(address)
+			err := l.AddPeer(address)
+			if err != nil {
+				log.Warn().Field("err", err).Log("Error adding peer")
+			}
+			p, exists := l.peers.Load(address)
+			if exists {
+				log.Warn().Field("err", err).Log("Error adding peer")
+			}
+			p.(*Peer).QueueMessage(message)
 		}
 	}
 }

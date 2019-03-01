@@ -7,6 +7,7 @@ import (
 
 	"bytes"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gladiusio/legion/frameworks/ethpool/protobuf"
 	"github.com/gladiusio/legion/network"
@@ -15,7 +16,9 @@ import (
 	"github.com/gladiusio/legion/network/transport"
 	"github.com/gogo/protobuf/proto"
 
+	log "github.com/gladiusio/legion/logger"
 	"sort"
+
 	"time"
 )
 
@@ -23,6 +26,7 @@ import (
 type IncomingMessage struct {
 	Sender *protobuf.ID
 	Body   proto.Message
+	Type   string
 }
 
 // New returns a Framework that uses the specified function to check if an address is valid, if
@@ -32,6 +36,7 @@ func New(addressValidator func(string) bool, privKey *ecdsa.PrivateKey) *Framewo
 		key:              privKey,
 		addressValidator: addressValidator,
 		messageChan:      make(chan *IncomingMessage),
+		idMap:            &sync.Map{},
 	}
 }
 
@@ -61,14 +66,21 @@ type Framework struct {
 	idMap *sync.Map
 }
 
+// Assert the type is correct
+var _ network.Framework = (*Framework)(nil)
+
 // Configure is used to set up our keystore, and block until we are ready to send/receive messages
-func (f *Framework) Configure(l *network.Legion) {
+func (f *Framework) Configure(l *network.Legion) error {
 	f.l = l
 	id := &ID{
 		EthAddress:     crypto.PubkeyToAddress(f.key.PublicKey).Bytes(),
 		NetworkAddress: l.Me().String(),
 	}
 	f.self = id
+
+	f.router = CreateRoutingTable(*id)
+
+	return nil
 }
 
 // ValidateMessage is called before any message is passed to the framework NewMessage()
@@ -89,7 +101,7 @@ func (f *Framework) ValidateMessage(ctx *network.MessageContext) bool {
 	}
 
 	// Verify the signature
-	if !crypto.VerifySignature(crypto.CompressPubkey(pubKey), hash, sm.Signature) {
+	if !crypto.VerifySignature(crypto.CompressPubkey(pubKey), hash, sm.Signature[:64]) {
 		return false
 	}
 
@@ -127,7 +139,32 @@ func (f *Framework) Bootstrap() {
 
 // SendMessage will send a signed version of the message to specified recipient
 // it will error if the recipient can't be connected to or found
-func (f *Framework) SendMessage(recipient, messageType string, body proto.Message) error {
+func (f *Framework) SendMessage(recipient common.Address, messageType string, body proto.Message) error {
+	toFind := ID{EthAddress: recipient.Bytes()}
+	peers := f.router.FindClosestPeers(toFind, 1)
+
+	if len(peers) != 1 {
+		return errors.New("ethpool: could not find peer in routing table, try finding it first")
+	}
+
+	if !bytes.Equal(peers[0].EthAddress, toFind.EthAddress) {
+		return errors.New("ethpool: could not find peer in routing table, try finding it first")
+	}
+
+	bodyBytes, err := proto.Marshal(body)
+	if err != nil {
+		return errors.New("ethpool: could not marshal message body")
+	}
+
+	m, err := f.makeLegionSignedMessage(messageType, bodyBytes)
+	if err != nil {
+		return errors.New("ethpool: could not make legion signed message")
+	}
+
+	la := utils.LegionAddressFromString(peers[0].NetworkAddress)
+
+	f.l.Broadcast(m, la)
+
 	return nil
 }
 
@@ -161,9 +198,10 @@ func (f *Framework) NewMessage(ctx *network.MessageContext) {
 		if err != nil {
 			return
 		}
+
 		ctx.Reply(m)
 	} else if ctx.Message.Type == "dht.pong" {
-		f.respondToPong()
+		f.handlePong()
 	} else if ctx.Message.Type == "dht.lookup_request" {
 		lookupRequestBytes, err := getDHTMessageBody(ctx.Message.Body)
 		if err != nil {
@@ -190,10 +228,13 @@ func (f *Framework) NewMessage(ctx *network.MessageContext) {
 		}
 
 		m, err := f.makeLegionSignedMessage("dht.lookup_response", respBytes)
+		if err != nil {
+			return
+		}
 		ctx.Reply(m)
 
 	} else { // Send everything else to the recieve channel
-		f.messageChan <- &IncomingMessage{Sender: dhtMessage.Sender, Body: dhtMessage}
+		f.messageChan <- &IncomingMessage{Sender: dhtMessage.Sender, Body: dhtMessage, Type: ctx.Message.Type}
 	}
 }
 
@@ -253,8 +294,8 @@ func (f *Framework) makeLegionSignedMessage(mType string, m []byte) (*transport.
 	return f.l.NewMessage(mType, signedBytes), nil
 }
 
-func (f *Framework) respondToPong() {
-	// Find peers neer us
+func (f *Framework) handlePong() {
+	// Find peers from all the closest remotes
 	peers, err := f.findPeers(*f.self, BucketSize)
 	if err != nil {
 		return
@@ -264,7 +305,6 @@ func (f *Framework) respondToPong() {
 		f.router.Update(*p)
 	}
 
-	// Next we should ask for a far peer and update
 }
 
 // Find the peers closest to the ethereum address given
@@ -274,6 +314,9 @@ func (f *Framework) findPeers(target ID, count int) ([]*ID, error) {
 	peers := make([]*ID, 0)
 
 	for _, peerID := range f.router.FindClosestPeers(target, count) {
+		wg.Add(1)
+
+		// Create the request
 		tID := protobuf.ID(target)
 		lookupRequest := &protobuf.LookupRequest{Target: &tID}
 		b, err := lookupRequest.Marshal()
@@ -287,11 +330,11 @@ func (f *Framework) findPeers(target ID, count int) ([]*ID, error) {
 
 		// Preform the lookup
 		go func(p ID) {
-			wg.Add(1)
 			defer wg.Done()
 
 			incoming, err := f.l.Request(m, time.Second, utils.LegionAddressFromString(p.NetworkAddress))
 			if err != nil {
+				log.Warn().Field("err", err.Error()).Field("peer", p.EthereumAddress()).Log("Request for lookup was not returned")
 				return
 			}
 

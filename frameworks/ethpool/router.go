@@ -5,6 +5,7 @@ Adapted from the implementation in github.com/perlin-network/noise/
 package ethpool
 
 import (
+	"bytes"
 	"container/list"
 	"sort"
 	"sync"
@@ -58,6 +59,10 @@ func (t *RoutingTable) Self() []byte {
 // Update moves a peer to the front of a bucket in the routing table.
 func (t *RoutingTable) Update(target ID) {
 	if len(t.self.EthAddress) != len(target.EthAddress) {
+		return
+	}
+
+	if bytes.Equal(target.EthAddress, t.Self()) {
 		return
 	}
 
