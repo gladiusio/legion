@@ -86,8 +86,12 @@ func (p *Peer) Request(timeout time.Duration, m *transport.Message) (*transport.
 	p.requestsMux.Unlock()
 
 	// Cleanup when we're done
-	//defer p.requests.Delete(current)
-	//defer close(receiveChan)
+	defer func() {
+		p.requestsMux.Lock()
+		delete(p.requests, current)
+		p.requestsMux.Unlock()
+		close(receiveChan)
+	}()
 
 	// logger.Info().Field("type", m.Type).Field("is_reply", m.IsReply).Field("remote", p.remote.String()).Log("sent message")
 
