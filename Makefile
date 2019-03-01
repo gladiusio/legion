@@ -2,7 +2,7 @@
 all: test
 
 test:
-	@go test -v ./...
+	@go test ./...
 
 protobuf:
 	@protoc --gogofaster_out=. network/transport/*.proto 
