@@ -174,7 +174,7 @@ func (f *Framework) SendMessage(recipient common.Address, messageType string, bo
 	return nil
 }
 
-// RecieveMessageChan returns a channel that recieves messages
+// RecieveMessageChan returns a channel that receives messages
 func (f *Framework) RecieveMessageChan() chan *IncomingMessage {
 	return f.messageChan
 }
@@ -244,7 +244,7 @@ func (f *Framework) NewMessage(ctx *network.MessageContext) {
 		}
 		ctx.Reply(m)
 
-	} else { // Send everything else to the recieve channel
+	} else { // Send everything else to the receive channel
 		f.messageChan <- &IncomingMessage{Sender: dhtMessage.Sender, Body: dhtMessage, Type: ctx.Message.Type}
 	}
 }

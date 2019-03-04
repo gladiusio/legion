@@ -333,7 +333,7 @@ func (l *Legion) NewMessage(messageType string, body []byte) *transport.Message 
 
 func (l *Legion) handleNewConnection(conn net.Conn) {
 	// Create a new peer that's not yet stored, it will be registered with the network
-	// later in the message listener once we recieve a message from it.
+	// later in the message listener once we receive a message from it.
 	p := NewPeer(utils.LegionAddress{})
 	err := p.CreateServer(conn)
 	if err != nil {
