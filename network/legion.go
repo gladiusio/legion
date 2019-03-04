@@ -73,11 +73,11 @@ func (l *Legion) Broadcast(message *transport.Message, addresses ...utils.Legion
 		} else {
 			err := l.AddPeer(address)
 			if err != nil {
-				log.Warn().Field("err", err).Log("Error adding peer")
+				log.Warn().Field("err", err).Log("Error adding new peer in from broadcast call")
 			}
 			p, exists := l.peers.Load(address)
-			if exists {
-				log.Warn().Field("err", err).Log("Error adding peer")
+			if !exists {
+				log.Warn().Log("Error sending message to peer, it may have disconnected")
 			}
 			p.(*Peer).QueueMessage(message)
 		}
