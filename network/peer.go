@@ -77,7 +77,7 @@ func (p *Peer) Request(timeout time.Duration, m *transport.Message) (*transport.
 	m.RpcId = current
 	m.IsRequest = true
 
-	// Make a channel to recieve the message
+	// Make a channel to receive the message
 	receiveChan := make(chan *transport.Message)
 
 	// Store this so the reply message gets written to it
