@@ -1,6 +1,7 @@
 package ethpool
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gladiusio/legion/frameworks/ethpool/protobuf"
 	"github.com/gladiusio/legion/network"
@@ -39,7 +40,7 @@ func (lg *frameworkGroup) makeFrameworks(n int) {
 		if err != nil {
 			panic(err)
 		}
-		f := New(func(string) bool { return true }, privKey)
+		f := New(func(common.Address) bool { return true }, privKey)
 		l := network.NewLegion(makeConfig(7000+uint16(i)), f)
 		go func() {
 			err := l.Listen()
@@ -91,6 +92,7 @@ func TestBootstrap(t *testing.T) {
 	fg := newFrameworkGroup(3)
 	fg.waitUntilStarted()
 	fg.connect()
+	defer fg.stop()
 
 	for _, f := range fg.frameworks {
 		f.Bootstrap()
@@ -103,12 +105,10 @@ func TestBootstrap(t *testing.T) {
 			t.Errorf("Incorrect number of peers, should have been 2, was %d", len(peers))
 		}
 	}
-
-	fg.stop()
 }
 
 func TestMessaging(t *testing.T) {
-	fg := newFrameworkGroup(3)
+	fg := newFrameworkGroup(25)
 	fg.waitUntilStarted()
 	fg.connect()
 
@@ -148,4 +148,27 @@ L:
 
 	fg.stop()
 
+}
+
+func BenchmarkMessages(b *testing.B) {
+	fg := newFrameworkGroup(2)
+	fg.waitUntilStarted()
+	fg.connect()
+	defer fg.stop()
+
+	for _, f := range fg.frameworks {
+		f.Bootstrap()
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	toSend := fg.frameworks[0].self.EthereumAddress()
+	sender := fg.frameworks[1]
+	receiveChan := fg.frameworks[0].RecieveMessageChan()
+
+	sender.SendMessage(toSend, "introduction", &protobuf.Empty{})
+
+	for n := 0; n < b.N; n++ {
+		sender.SendMessage(toSend, "benching", &protobuf.Empty{})
+		_ = <-receiveChan
+	}
 }

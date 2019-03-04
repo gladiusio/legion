@@ -16,8 +16,9 @@ import (
 	"github.com/gladiusio/legion/network/transport"
 	"github.com/gogo/protobuf/proto"
 
-	log "github.com/gladiusio/legion/logger"
 	"sort"
+
+	log "github.com/gladiusio/legion/logger"
 
 	"time"
 )
@@ -31,7 +32,7 @@ type IncomingMessage struct {
 
 // New returns a Framework that uses the specified function to check if an address is valid, if
 // nil all addresses will be considered valid
-func New(addressValidator func(string) bool, privKey *ecdsa.PrivateKey) *Framework {
+func New(addressValidator func(common.Address) bool, privKey *ecdsa.PrivateKey) *Framework {
 	return &Framework{
 		key:              privKey,
 		addressValidator: addressValidator,
@@ -47,7 +48,7 @@ type Framework struct {
 	network.GenericFramework
 
 	// Used to check if an address is acceptable
-	addressValidator func(string) bool
+	addressValidator func(common.Address) bool
 
 	l *network.Legion
 
@@ -94,26 +95,31 @@ func (f *Framework) ValidateMessage(ctx *network.MessageContext) bool {
 	// Hash message
 	hash := crypto.Keccak256(sm.DhtMessage)
 
-	// Get the public key
+	// Get the public key and address
 	pubKey, err := crypto.SigToPub(hash, sm.Signature)
 	if err != nil {
 		return false
 	}
+	addr := crypto.PubkeyToAddress(*pubKey)
 
 	// Verify the signature
 	if !crypto.VerifySignature(crypto.CompressPubkey(pubKey), hash, sm.Signature[:64]) {
 		return false
 	}
 
-	// Check to see if the signed Ethereum Address matches sender
 	m := &protobuf.DHTMessage{}
 	err = m.Unmarshal(sm.DhtMessage)
 	if err != nil {
 		return false
 	}
 
+	// Make sure there isn't a nil sender
+	if m.GetSender() == nil {
+		return false
+	}
+
 	// Make sure the sender matches the DHT message
-	if !bytes.Equal(m.GetSender().EthAddress, crypto.PubkeyToAddress(*pubKey).Bytes()) {
+	if !bytes.Equal(m.GetSender().EthAddress, addr.Bytes()) {
 		return false
 	}
 
@@ -125,7 +131,7 @@ func (f *Framework) ValidateMessage(ctx *network.MessageContext) bool {
 	}
 
 	// Finally check to see if the address is part of the pool
-	return f.addressValidator(ID(*m.GetSender()).AddressHex())
+	return f.addressValidator(addr)
 }
 
 // Bootstrap will ping any connected nodes with a DHT message
@@ -171,6 +177,11 @@ func (f *Framework) SendMessage(recipient common.Address, messageType string, bo
 // RecieveMessageChan returns a channel that recieves messages
 func (f *Framework) RecieveMessageChan() chan *IncomingMessage {
 	return f.messageChan
+}
+
+// Address returns the ethereum address registered with the framework
+func (f *Framework) Address() common.Address {
+	return crypto.PubkeyToAddress(f.key.PublicKey)
 }
 
 // NewMessage is called when a message is received by the network

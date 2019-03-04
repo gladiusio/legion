@@ -1,7 +1,6 @@
 package network
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -273,7 +272,6 @@ func TestDoFunction(t *testing.T) {
 	f := func(p *Peer) { atomic.AddUint64(&count, 1) }
 
 	lg.legions[0].DoAllPeers(f)
-	fmt.Println()
 
 	if count != 5 {
 		t.Errorf("function was not called on all peers, should have been 5, was: %d", count)
@@ -306,7 +304,7 @@ func TestSingleConnectionOpened(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	peerCount = 0
-	lg.legions[0].peers.Range(func(key, value interface{}) bool { peerCount++; fmt.Println(key); return true })
+	lg.legions[0].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}

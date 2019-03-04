@@ -1,8 +1,9 @@
 package ethpool
 
 import (
-	"github.com/ethereum/go-ethereum/crypto"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func makeID() *ID {

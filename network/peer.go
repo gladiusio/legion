@@ -237,7 +237,7 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 	for numBytesRead < 4 {
 		n, err := stream.Read(buffer)
 		if err != nil {
-			logger.Debug().Field("err", err).Log("Error reading message header")
+			logger.Debug().Field("err", err.Error()).Log("Error reading message header")
 			return
 		}
 
@@ -278,16 +278,18 @@ func (p *Peer) readMessage(stream *yamux.Stream) {
 
 	// If this is an RPC response pass it along  to the correct receive channel, if not send it to the
 	// regular message receive channels
-	if m.IsReply {
-		p.requestsMux.Lock()
-		respChan, exists := p.requests[m.RpcId]
-		p.requestsMux.Unlock()
-		if exists {
-			go func(c chan *transport.Message) { c <- m }(respChan)
+	if !p.session.IsClosed() {
+		if m.IsReply {
+			p.requestsMux.Lock()
+			respChan, exists := p.requests[m.RpcId]
+			p.requestsMux.Unlock()
+			if exists {
+				go func(c chan *transport.Message) { c <- m }(respChan)
+			} else {
+				logger.Warn().Field("type", m.Type).Field("local", p.session.LocalAddr().String()).Field("channel_id", m.RpcId).Field("remote", p.remote.String()).Log("Got response to nonexistant RPC channel")
+			}
 		} else {
-			logger.Warn().Field("type", m.Type).Field("local", p.session.LocalAddr().String()).Field("channel_id", m.RpcId).Field("remote", p.remote.String()).Log("Got response to nonexistant RPC channel")
+			go func(c chan *transport.Message) { c <- m }(p.receiveChan)
 		}
-	} else {
-		go func(c chan *transport.Message) { c <- m }(p.receiveChan)
 	}
 }
