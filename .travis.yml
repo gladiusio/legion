@@ -8,6 +8,6 @@ go:
 
 # Fix tests so they can run on travis eventually, right now travis is too slow
 
-install: 'echo "one day I should fix this to run the tests slower"'
+script: 'echo "one day I should fix this to run the tests slower"'
 
 
