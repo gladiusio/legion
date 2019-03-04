@@ -1,0 +1,15 @@
+syntax = "proto3";
+package transport;
+
+message Message {
+	// sender is the network address to contact
+	string sender = 1;
+
+	string type = 2;
+	bytes body = 3;
+
+	// Used to keep track of RPC messages
+	uint64 rpc_id = 4;
+	bool is_request = 5;
+	bool is_reply = 6;
+}

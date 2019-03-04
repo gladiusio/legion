@@ -1,6 +1,7 @@
 package network
 
 import (
+	"errors"
 	"math/rand"
 	"net"
 	"sync"
@@ -8,7 +9,7 @@ import (
 
 	"github.com/gladiusio/legion/network/config"
 	"github.com/gladiusio/legion/network/events"
-	"github.com/gladiusio/legion/network/message"
+	"github.com/gladiusio/legion/network/transport"
 	"github.com/gladiusio/legion/utils"
 
 	log "github.com/gladiusio/legion/logger"
@@ -17,34 +18,26 @@ import (
 )
 
 // NewLegion creates a legion object from a config
-func NewLegion(conf *config.LegionConfig) *Legion {
-	if conf.MessageValidator == nil {
-		log.Warn().Log("legion: message validator function is nil, all messages will be considered valid")
-		conf.MessageValidator = func(m *message.Message) bool { return true }
+func NewLegion(conf *config.LegionConfig, f Framework) *Legion {
+	if f == nil {
+		log.Warn().Log("legion: using generic framework for validation")
+		f = &GenericFramework{}
 	}
 	return &Legion{
-		promotedPeers: &sync.Map{},
-		allPeers:      &sync.Map{},
-		plugins:       make([]PluginInterface, 0),
-		config:        conf,
-		started:       make(chan struct{}),
+		peers:     &sync.Map{},
+		config:    conf,
+		started:   make(chan struct{}),
+		framework: f,
 	}
 }
 
 // Legion is a type with methods to interface with the network
 type Legion struct {
-	// These peers are written to by the broadcast and broadcast random (when a peer list isn't provided).
-	// They are generally considered safe to write and read to, and have been explicitly
-	// promoted by calling PromotePeer(address)
-	promotedPeers *sync.Map
+	// All connected peers stored as: [LegionAddress -> Peer]
+	peers *sync.Map
 
-	// This is the initial state of a peer when it is added, it allows communication
-	// with plugins (useful for a peer authorization step), but will not be written to unless
-	// specifically called
-	allPeers *sync.Map
-
-	// Registered plugins, these are called in order when plugin events happen
-	plugins []PluginInterface
+	// Which framework legion is using
+	framework Framework
 
 	// Our config type
 	config *config.LegionConfig
@@ -58,39 +51,70 @@ type Legion struct {
 
 // Me returns the local bindaddress
 func (l *Legion) Me() utils.LegionAddress {
-	return l.config.BindAddress
+	return l.config.AdvertiseAddress
 }
 
-// Broadcast sends the message to all writeable peers, unless a
+// Broadcast sends the message to all peers, unless a
 // specified list of peers is provided
-func (l *Legion) Broadcast(message *message.Message, addresses ...utils.LegionAddress) {
+func (l *Legion) Broadcast(message *transport.Message, addresses ...utils.LegionAddress) {
 	// Wait until we're listening
 	l.Started()
 
-	// Send to all promoted peers
+	// Send to all peers
 	if len(addresses) == 0 {
-		l.promotedPeers.Range(func(k, v interface{}) bool { v.(*Peer).QueueMessage(message); return true })
+		l.peers.Range(func(k, v interface{}) bool { v.(*Peer).QueueMessage(message); return true })
 		return
 	}
 
-	// If they provided a set of addresses we can check from all connected peers (not just promoted)
+	// If they provided addresses, we can send to those
 	for _, address := range addresses {
-		if p, ok := l.allPeers.Load(address); ok {
+		if p, ok := l.peers.Load(address); ok {
 			p.(*Peer).QueueMessage(message)
 		} else {
-			l.AddPeer(address)
+			err := l.AddPeer(address)
+			if err != nil {
+				log.Warn().Field("err", err).Log("Error adding new peer in from broadcast call")
+			}
+			p, exists := l.peers.Load(address)
+			if !exists {
+				log.Warn().Log("Error sending message to peer, it may have disconnected")
+			}
+			p.(*Peer).QueueMessage(message)
 		}
 	}
 }
 
-// BroadcastRandom broadcasts a message to N random promoted peers
-func (l *Legion) BroadcastRandom(message *message.Message, n int) {
+// Request sends a request message to the specified peer
+func (l *Legion) Request(message *transport.Message, timeout time.Duration, address utils.LegionAddress) (*transport.Message, error) {
+	// Wait until we're listening
+	l.Started()
+
+	if p, ok := l.peers.Load(address); ok {
+		return p.(*Peer).Request(timeout, message)
+	}
+
+	err := l.AddPeer(address)
+	if err != nil {
+		return nil, errors.New("request: error adding new peer")
+
+	}
+	p, exists := l.peers.Load(address)
+	if exists {
+		return p.(*Peer).Request(timeout, message)
+	}
+
+	// We couldn't find the peer (could have disconnected etc)
+	return nil, errors.New("request: error sending request to new peer")
+}
+
+// BroadcastRandom broadcasts a message to N random peers
+func (l *Legion) BroadcastRandom(message *transport.Message, n int) {
 	// Wait until we're listening
 	l.Started()
 
 	// sync.Map doesn't store length, so we get n random like this
 	addrs := make([]utils.LegionAddress, 0, 100)
-	l.promotedPeers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.LegionAddress)); return true })
+	l.peers.Range(func(key, value interface{}) bool { addrs = append(addrs, key.(utils.LegionAddress)); return true })
 
 	if n > len(addrs) || n <= 1 {
 		l.Broadcast(message)
@@ -108,47 +132,19 @@ func (l *Legion) BroadcastRandom(message *message.Message, n int) {
 
 // AddPeer adds the specified peer(s) to the network by dialing it and
 // opening a stream, as well as adding it to the list of all peers.
-// Note: this does not add it to the promoted peers, so a broadcast
-// to all peers will not send to the added peers unless they are
-// promoted. Returns an error if one or more peers can't be dialed,
-// however all peers will have a dial attempt.
 func (l *Legion) AddPeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 	for _, address := range addresses {
 		// Make sure the peer isn't already added or ourselves
-		if _, ok := l.allPeers.Load(address); !ok && address != l.Me() {
+		if _, ok := l.peers.Load(address); !ok && address != l.Me() {
 			p, err := l.createAndDialPeer(address)
 			if err != nil {
 				log.Warn().Field("err", err).Log("Error adding peer")
 				result = multierror.Append(result, err)
 				continue
 			}
-			l.storePeer(p, false)
+			l.storePeer(p)
 			l.addMessageListener(p, false)
-		}
-	}
-	return result.ErrorOrNil()
-}
-
-// PromotePeer makes the given peer(s) writeable, if the peer doesn't exist
-// it is created first. Returns an error if one or more peers can't be dialed,
-// however all peers will have a dial attempt.
-func (l *Legion) PromotePeer(addresses ...utils.LegionAddress) error {
-	var result *multierror.Error
-	for _, address := range addresses {
-		if p, ok := l.allPeers.Load(address); ok { // If the peer exists, we add it to the promoted peers
-			l.storePeer(p.(*Peer), true)
-			l.FirePeerEvent(events.PeerPromotionEvent, p.(*Peer), false)
-		} else { // If not we create a new peer and dial it
-			p, err := l.createAndDialPeer(address)
-			if err != nil {
-				result = multierror.Append(result, err)
-				continue
-			}
-			l.storePeer(p, true)
-			l.addMessageListener(p, false)
-			l.FirePeerEvent(events.PeerAddEvent, p, false)
-			l.FirePeerEvent(events.PeerPromotionEvent, p, false)
 		}
 	}
 	return result.ErrorOrNil()
@@ -161,13 +157,12 @@ func (l *Legion) DeletePeer(addresses ...utils.LegionAddress) error {
 	var result *multierror.Error
 
 	for _, address := range addresses {
-		if p, ok := l.allPeers.Load(address); ok {
+		if p, ok := l.peers.Load(address); ok {
 			err := p.(*Peer).Close()
 			if err != nil {
 				result = multierror.Append(result, err)
 			}
-			l.allPeers.Delete(address)
-			l.promotedPeers.Delete(address)
+			l.peers.Delete(address)
 		}
 	}
 
@@ -176,62 +171,39 @@ func (l *Legion) DeletePeer(addresses ...utils.LegionAddress) error {
 
 // PeerExists returns whether or not a peer has been connected to previously
 func (l *Legion) PeerExists(address utils.LegionAddress) bool {
-	_, ok := l.allPeers.Load(address)
-	return ok
-}
-
-// PeerPromoted returns whether or not a peer is promoted.
-func (l *Legion) PeerPromoted(address utils.LegionAddress) bool {
-	_, ok := l.promotedPeers.Load(address)
+	_, ok := l.peers.Load(address)
 	return ok
 }
 
 // DoAllPeers runs the function f on all peers
 func (l *Legion) DoAllPeers(f func(p *Peer)) {
-	l.allPeers.Range(func(key, value interface{}) bool {
+	l.peers.Range(func(key, value interface{}) bool {
 		p, ok := value.(*Peer)
 		if ok {
 			f(p)
 		}
 		return true
 	})
-}
-
-// DoPromotedPeers runs the function f on all promoted peers
-func (l *Legion) DoPromotedPeers(f func(p *Peer)) {
-	l.promotedPeers.Range(func(key, value interface{}) bool {
-		p, ok := value.(*Peer)
-		if ok {
-			f(p)
-		}
-		return true
-	})
-}
-
-// RegisterPlugin registers a plugin(s) with the network
-func (l *Legion) RegisterPlugin(plugins ...PluginInterface) {
-	for _, p := range plugins {
-		l.plugins = append(l.plugins, p)
-	}
 }
 
 // Listen will listen on the configured address for incoming connections, it will
 // also wait for all plugin's Startup() methods to return before binding.
 func (l *Legion) Listen() error {
-	var err error
+	// Configure our framework
+	err := l.framework.Configure(l)
+	if err != nil {
+		return err
+	}
 
 	l.listener, err = net.Listen("tcp", l.config.BindAddress.String())
 	if err != nil {
 		return err
 	}
 
-	// Signal after a delay we're listening
-	go func() {
-		time.Sleep(1 * time.Second)
-		close(l.started)
-		log.Info().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
-		l.FireNetworkEvent(events.StartupEvent)
-	}()
+	// Signal we're listening
+	close(l.started)
+	log.Info().Field("addr", l.config.BindAddress.String()).Log("Listening on: " + l.config.BindAddress.String())
+	l.FireNetworkEvent(events.StartupEvent)
 
 	// Accept incoming TCP connections
 	for {
@@ -258,13 +230,11 @@ func (l *Legion) Started() {
 
 // FireMessageEvent fires a new message event and sends context to the correct plugin
 // methods based on the event type
-func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *message.Message) {
+func (l *Legion) FireMessageEvent(eventType events.MessageEvent, message *transport.Message) {
 	go func() {
-		messageContext := &MessageContext{Legion: l, Message: message, Sender: message.Sender()} // Create some context for our plugin
-		for _, p := range l.plugins {
-			if eventType == events.NewMessageEvent {
-				go p.NewMessage(messageContext)
-			}
+		if eventType == events.NewMessageEvent {
+			messageContext := &MessageContext{Legion: l, Message: message, Sender: utils.LegionAddressFromString(message.GetSender())} // Create some context for our plugin
+			go l.framework.NewMessage(messageContext)
 		}
 	}()
 }
@@ -280,15 +250,12 @@ func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer, isIncomin
 			IsIncoming: isIncoming,
 		}
 		// Tell all of the plugins about the event
-		for _, p := range l.plugins {
-			if eventType == events.PeerAddEvent {
-				go p.PeerAdded(peerContext)
-			} else if eventType == events.PeerDisconnectEvent {
-				go p.PeerDisconnect(peerContext)
-			} else if eventType == events.PeerPromotionEvent {
-				go p.PeerPromotion(peerContext)
-			}
+		if eventType == events.PeerAddEvent {
+			go l.framework.PeerAdded(peerContext)
+		} else if eventType == events.PeerDisconnectEvent {
+			go l.framework.PeerDisconnect(peerContext)
 		}
+
 	}()
 }
 
@@ -297,12 +264,10 @@ func (l *Legion) FirePeerEvent(eventType events.PeerEvent, peer *Peer, isIncomin
 // completed
 func (l *Legion) FireNetworkEvent(eventType events.NetworkEvent) {
 	netContext := &NetworkContext{Legion: l}
-	for _, p := range l.plugins {
-		if eventType == events.StartupEvent {
-			p.Startup(netContext)
-		} else if eventType == events.CloseEvent {
-			p.Close(netContext)
-		}
+	if eventType == events.StartupEvent {
+		l.framework.Startup(netContext)
+	} else if eventType == events.CloseEvent {
+		l.framework.Close(netContext)
 	}
 }
 
@@ -313,7 +278,7 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 		storePeer := func(sender utils.LegionAddress) func() {
 			return func() {
 				p.remote = sender
-				l.storePeer(p, false)
+				l.storePeer(p)
 				l.FirePeerEvent(events.PeerAddEvent, p, true)
 			}
 		}
@@ -325,13 +290,15 @@ func (l *Legion) addMessageListener(p *Peer, incoming bool) {
 				if !open {
 					return
 				}
-				// Call whatever validator is registered to see if the message is valid
-				if l.config.MessageValidator(m) {
+
+				// Call the framework validator to see if the message should be sent to plugins
+				ctx := &MessageContext{Legion: l, Message: m, Sender: utils.LegionAddressFromString(m.GetSender())}
+				if l.framework.ValidateMessage(ctx) {
 					l.FireMessageEvent(events.NewMessageEvent, m)
 					// Only store the peer on the first message if it is an incoming connection
 					// this is so we can get a the actual sender and store it
 					if incoming {
-						once.Do(storePeer(m.Sender()))
+						once.Do(storePeer(utils.LegionAddressFromString(m.GetSender())))
 					} else {
 						once.Do(func() { l.FirePeerEvent(events.PeerAddEvent, p, false) })
 					}
@@ -356,25 +323,17 @@ func (l *Legion) createAndDialPeer(address utils.LegionAddress) (*Peer, error) {
 		return nil, err
 	}
 
-	// Send an introduction message so it knows who we are
-	p.QueueMessage(l.NewMessage("legion_introduction", []byte{}))
-
 	return p, nil
 }
 
 // NewMessage returns a message with the sender field set to the bind address of the network and no extra data
-func (l *Legion) NewMessage(messageType string, body []byte) *message.Message {
-	return message.New(l.config.AdvertiseAddress, messageType, body, []byte{})
-}
-
-// NewMessageWithData returns a message with the sender field set to the bind address of the network
-func (l *Legion) NewMessageWithData(messageType string, body, data []byte) *message.Message {
-	return message.New(l.config.AdvertiseAddress, messageType, body, []byte{})
+func (l *Legion) NewMessage(messageType string, body []byte) *transport.Message {
+	return &transport.Message{Type: messageType, Body: body, Sender: l.Me().String()}
 }
 
 func (l *Legion) handleNewConnection(conn net.Conn) {
-	// Create a new (not stored or dialable) peer. This will be registered with the network
-	// later in the message listener.
+	// Create a new peer that's not yet stored, it will be registered with the network
+	// later in the message listener once we recieve a message from it.
 	p := NewPeer(utils.LegionAddress{})
 	err := p.CreateServer(conn)
 	if err != nil {
@@ -388,27 +347,21 @@ func (l *Legion) handleNewConnection(conn net.Conn) {
 	log.Debug().Field("addr", conn.RemoteAddr().String()).Log("Received new peer connection")
 }
 
-func (l *Legion) storePeer(p *Peer, promoted bool) {
-	if promoted {
-		l.promotedPeers.Store(p.remote, p)
-	}
-
+func (l *Legion) storePeer(p *Peer) {
 	// If it is already stored, don't add a cleanup handler
-	if _, stored := l.allPeers.LoadOrStore(p.remote, p); stored {
+	if _, stored := l.peers.LoadOrStore(p.remote, p); stored {
 		return
 	}
 
-	// Wait until that peer is disconnected to remove it
+	// Handle cleanup - wait until that peer is disconnected to remove it
 	go func() {
 		p.BlockUntilDisconnected()
 
 		p.Close()
 
-		// Cleanup both maps
-		l.allPeers.Delete(p.remote)
-		l.promotedPeers.Delete(p.remote)
+		// Cleanup the peer map
+		l.peers.Delete(p.remote)
 
-		// Only fire this once (not in storePromotedPeer)
 		l.FirePeerEvent(events.PeerDisconnectEvent, p, true)
 		log.Debug().Field("remote_addr", p.Remote().String()).Log("Peer disconnected")
 	}()

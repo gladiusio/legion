@@ -1,7 +1,6 @@
 package network
 
 import (
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -9,7 +8,7 @@ import (
 
 	"github.com/gladiusio/legion/network/config"
 	"github.com/gladiusio/legion/network/events"
-	"github.com/gladiusio/legion/network/message"
+	"github.com/gladiusio/legion/network/transport"
 	"github.com/gladiusio/legion/utils"
 )
 
@@ -17,54 +16,47 @@ func makeConfig(port uint16) *config.LegionConfig {
 	return &config.LegionConfig{
 		BindAddress:      utils.NewLegionAddress("localhost", port),
 		AdvertiseAddress: utils.NewLegionAddress("localhost", port),
-		MessageValidator: func(m *message.Message) bool { return true },
 	}
 }
 
 func TestLegionCreation(t *testing.T) {
-	l := NewLegion(makeConfig(6000))
+	l := NewLegion(makeConfig(6000), nil)
 
-	if l.allPeers == nil {
-		t.Error("allPeers was not initialized")
+	if l.peers == nil {
+		t.Error("peers was not initialized")
 	}
 
-	if l.promotedPeers == nil {
-		t.Error("promotedPeers was not initialized")
-	}
-
-	if l.plugins == nil {
-		t.Error("plugin list was not initialized")
+	if l.framework == nil {
+		t.Error("framework was not initialized")
 	}
 }
 
-func TestRegisterPlugin(t *testing.T) {
-	l := NewLegion(makeConfig(6000))
-	p := new(GenericPlugin)
-	l.RegisterPlugin(p)
+func TestFramework(t *testing.T) {
+	l := NewLegion(makeConfig(6000), new(GenericFramework))
 
-	if len(l.plugins) != 1 {
-		t.Errorf("plugin list length should be 1, was %d", len(l.plugins))
+	if l.framework == nil {
+		t.Errorf("framework not added")
 	}
 }
 
-type MessagePlugin struct {
-	GenericPlugin
+type MessageFramework struct {
+	GenericFramework
 	callback func(ctx *MessageContext)
 }
 
-func (m *MessagePlugin) NewMessage(ctx *MessageContext) {
+func (m *MessageFramework) NewMessage(ctx *MessageContext) {
 	m.callback(ctx)
 }
 
 func TestFireMessageEvent(t *testing.T) {
-	l := NewLegion(makeConfig(6000))
 	failed := true
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
+
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
 		failed = false
 	}}
-	l.RegisterPlugin(p)
+	l := NewLegion(makeConfig(6000), f)
 
-	l.FireMessageEvent(events.NewMessageEvent, &message.Message{})
+	l.FireMessageEvent(events.NewMessageEvent, &transport.Message{})
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -86,7 +78,7 @@ type legionGroup struct {
 func (lg *legionGroup) makeLegions(n int) {
 	legions := make([]*Legion, 0, n)
 	for i := 0; i < n; i++ {
-		l := NewLegion(makeConfig(6000 + uint16(i)))
+		l := NewLegion(makeConfig(6000+uint16(i)), nil)
 		go func() {
 			err := l.Listen()
 			if err != nil {
@@ -140,13 +132,18 @@ func TestPeerConnection(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	peerCount := 0
-	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[0].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 
+	// Send introduction
+	lg.legions[0].Broadcast(lg.legions[0].NewMessage("test", []byte{}))
+
+	time.Sleep(100 * time.Millisecond)
+
 	peerCount = 0
-	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[1].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
@@ -162,66 +159,43 @@ func TestPeerConnectionWhenMessageRecieved(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	peerCount := 0
-	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[0].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 
 	// Peer 1 sends introduction to peer 2
-	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), lg.legions[1].config.BindAddress)
+	lg.legions[0].Broadcast(lg.legions[0].NewMessage("", []byte{}), lg.legions[1].config.BindAddress)
 
 	time.Sleep(100 * time.Millisecond)
 
 	peerCount = 0
-	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[1].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 }
 
-func TestPromotePeer(t *testing.T) {
-	lg := newLegionGroup(2)
-	lg.waitUntilStarted()
-
-	lg.connect()
-	defer lg.stop()
-
-	time.Sleep(100 * time.Millisecond)
-
-	lg.legions[0].PromotePeer(lg.legions[1].config.BindAddress)
-
-	peerCount := 0
-	lg.legions[0].promotedPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
-	if peerCount != 1 {
-		t.Errorf("promoted number of peers is incorrect, there should have been 1, there were: %d", peerCount)
-	}
-
-	peerCount = 0
-	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
-	if peerCount != 1 {
-		t.Errorf("number of total peers is incorrect, there should have been 1, there were: %d", peerCount)
-	}
-}
-
 func TestBroadcast(t *testing.T) {
-	lg := newLegionGroup(2)
-	lg.waitUntilStarted()
-
-	lg.connect()
-	defer lg.stop()
-
 	failed := true
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
-		if ctx.Message.Type() == "test" {
+
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
+		if ctx.Message.GetType() == "test" {
 			failed = false
 		}
 	}}
-	lg.legions[1].RegisterPlugin(p)
 
-	lg.legions[0].PromotePeer(lg.legions[1].config.BindAddress)
-	time.Sleep(100 * time.Millisecond)
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
 
-	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}))
+	lg.connect()
+	defer lg.stop()
+
+	lg.legions[1].framework = f
+
+	lg.legions[0].Broadcast(lg.legions[0].NewMessage("intro", []byte{}))
+
+	lg.legions[0].Broadcast(lg.legions[0].NewMessage("test", []byte{}))
 
 	time.Sleep(200 * time.Millisecond)
 
@@ -238,19 +212,19 @@ func TestBroadcastRandomNGreaterThanPeers(t *testing.T) {
 	defer lg.stop()
 
 	var count uint64
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
-		if ctx.Message.Type() == "test" {
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
+		if ctx.Message.GetType() == "test" {
 			atomic.AddUint64(&count, 1)
 		}
 	}}
+
 	for _, leg := range lg.legions[1:] {
-		lg.legions[0].PromotePeer(leg.config.BindAddress)
-		leg.RegisterPlugin(p)
+		leg.framework = f
 	}
 
 	time.Sleep(100 * time.Millisecond)
 
-	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), 11)
+	lg.legions[0].BroadcastRandom(lg.legions[0].NewMessage("test", []byte{}), 11)
 
 	time.Sleep(300 * time.Millisecond)
 
@@ -267,19 +241,18 @@ func TestBroadcastRandom(t *testing.T) {
 	defer lg.stop()
 
 	var count uint64
-	p := &MessagePlugin{callback: func(ctx *MessageContext) {
-		if ctx.Message.Type() == "test" {
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
+		if ctx.Message.GetType() == "test" {
 			atomic.AddUint64(&count, 1)
 		}
 	}}
 	for _, leg := range lg.legions[1:] {
-		lg.legions[0].PromotePeer(leg.config.BindAddress)
-		leg.RegisterPlugin(p)
+		leg.framework = f
 	}
 
 	time.Sleep(100 * time.Millisecond)
 
-	lg.legions[0].BroadcastRandom(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), 5)
+	lg.legions[0].BroadcastRandom(lg.legions[0].NewMessage("test", []byte{}), 5)
 
 	time.Sleep(300 * time.Millisecond)
 
@@ -299,15 +272,10 @@ func TestDoFunction(t *testing.T) {
 	f := func(p *Peer) { atomic.AddUint64(&count, 1) }
 
 	lg.legions[0].DoAllPeers(f)
-	fmt.Println()
 
 	if count != 5 {
 		t.Errorf("function was not called on all peers, should have been 5, was: %d", count)
 	}
-}
-
-func TestSelfDial(t *testing.T) {
-
 }
 
 func TestSingleConnectionOpened(t *testing.T) {
@@ -320,30 +288,72 @@ func TestSingleConnectionOpened(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Peer 1 sends introduction to peer 2
-	lg.legions[0].Broadcast(message.New(lg.legions[0].config.BindAddress, "test", []byte{}, []byte{}), lg.legions[1].config.BindAddress)
+	lg.legions[0].Broadcast(lg.legions[0].NewMessage("test", []byte{}), lg.legions[1].config.BindAddress)
 
 	time.Sleep(300 * time.Millisecond)
 
 	peerCount := 0
-	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[1].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect after intro message, there should have been 1, there were: %d", peerCount)
 	}
 
 	// Peer 2 sends message to peer 1
-	lg.legions[1].Broadcast(message.New(lg.legions[1].config.BindAddress, "test", []byte{}, []byte{}), lg.legions[0].config.BindAddress)
+	lg.legions[1].Broadcast(lg.legions[0].NewMessage("test", []byte{}), lg.legions[0].config.BindAddress)
 
 	time.Sleep(100 * time.Millisecond)
 
 	peerCount = 0
-	lg.legions[0].allPeers.Range(func(key, value interface{}) bool { peerCount++; fmt.Println(key); return true })
+	lg.legions[0].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("local number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
 
 	peerCount = 0
-	lg.legions[1].allPeers.Range(func(key, value interface{}) bool { peerCount++; return true })
+	lg.legions[1].peers.Range(func(key, value interface{}) bool { peerCount++; return true })
 	if peerCount != 1 {
 		t.Errorf("remote number of peers is incorrect, there should have been 1, there were: %d", peerCount)
 	}
+}
+
+func TestRPCMessage(t *testing.T) {
+	lg := newLegionGroup(2)
+	lg.waitUntilStarted()
+
+	lg.connect()
+	defer lg.stop()
+
+	time.Sleep(100 * time.Millisecond)
+
+	var count uint64
+	f := &MessageFramework{callback: func(ctx *MessageContext) {
+		atomic.AddUint64(&count, 1)
+
+		if ctx.Message.GetType() == "test" {
+			ctx.Reply(ctx.Legion.NewMessage("test_reply", []byte{}))
+		}
+		if ctx.Message.GetType() == "test_reply" {
+			t.Error("Reply should not be seen by NewMessage")
+		}
+	}}
+
+	for _, leg := range lg.legions {
+		leg.framework = f
+	}
+
+	resp, err := lg.legions[0].Request(lg.legions[0].NewMessage("test", []byte{}), 10*time.Millisecond, lg.legions[1].config.BindAddress)
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if resp.Type != "test_reply" {
+		t.Error("Response type not correct")
+	}
+
+	if count != 1 {
+		t.Errorf("Should have been 1 message processed by framework, was: %d", count)
+	}
+
 }

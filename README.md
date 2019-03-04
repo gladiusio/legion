@@ -1,7 +1,7 @@
 
 <p align="center">
   <h3 align="center">Legion</h3>
-  <p align="center">Fast, modular, and extensible peer to peer library in Go</p>
+  <p align="center">Fast, modular, and flexible peer to peer library in Go</p>
   <p align="center">
     <a href="https://godoc.org/github.com/gladiusio/legion/"><img src="https://godoc.org/github.com/gladiusio/legion/network?status.svg"></a>
     <a href="https://travis-ci.com/gladiusio/legion"><img src="https://travis-ci.com/gladiusio/legion.svg?branch=master"></a>
@@ -13,42 +13,39 @@
 ---
 
 Legion is an easy to use, fast, and bare-bones peer to peer library designed to leave most of the network characteristics up to the
-user through a simple yet powerful plugin system. It was written because here at [Gladius](https://gladius.io) we needed a peer
+user through a simple yet powerful framework system. It was written because here at [Gladius](https://gladius.io) we needed a peer
 to peer overlay for our applications, and existing solutions were not a perfect fit for our use case.
 
-We would also like to link to the Perlin Network's [Noise](https://github.com/perlin-network/noise), as their API inspired
+We would also like to link to the Perlin Network's [Noise](https://github.com/perlin-network/noise), as their initial API inspired
 a lot of our design philosophy and you should totally check it out.
 
 ## Overview
 
 - User defined messages, allowing you to build your own cryptography and message validation system
-- Powerful plugin system with easy to use event context
+- Powerful framework system with easy to use event context
 - Single TCP connection opened to each peer, where messages are sent over multiplexed streams
 - User defined logging via a [logging interface](#custom-logger)
 
 ## Background
 
 ### Basic Concepts
-There are two types of peers in a Legion network, promoted and unpromoted. This allows a user to connect to a peer and message it without having it generally sendable via a call to Broadcast, so that you can have some authentication or validation of a remote peer without having to code special logic in your plugins to handle that scenario. 
-
-Messages are extremely customizable and simple, we have no cryptography by default and don't enforce any specific message body requirements. We also 
-allow a user to set your own message validator to check an incoming message, which means you can add in your own crypto, compression, or really any other criteria you want.
+Messages are extremely customizable and simple with only enough information to allow Legion to discern the sender and message type. Legion has no cryptography by default and doesn't enforce any specific message body requirements. We also 
+allow a user to set your own message validator through a framework to check an incoming message, which means you can add in your own cryptography, compression, or really any other criteria you want.
 
 ## Usage
-
 This should be considered a quick start guide, there are more examples in the
 [examples folder](https://github.com/gladiusio/legion/tree/master/examples) and in the
 [Gladius Network Gateway](https://github.com/gladiusio/gladius-network-gateway)
 
 ### Basic Usage
-Here we create a legion object with a default config, wait until it's listening, add a peer, and promote it so it is generally sendable.
+Here we create a legion object with a default config, wait until it's listening, and add a peer.
 ```golang
 func main(){
     // Build a basic config
     conf := legion.SimpleConfig("localhost", 7947)
     
-    // Build a new legion object from the config
-    l := legion.New(conf)
+    // Build a new legion object from the config with no framework
+    l := legion.New(conf, nil)
 
     // Listen in a new goroutine
     go l.Listen()
@@ -62,7 +59,7 @@ func main(){
     }
 
     // Make that peer sendable by promoting it
-     err := l.PromotePeer(utils.LegionAddressFromString("localhost:7946"))
+     err := l.AddPeer(utils.LegionAddressFromString("localhost:7946"))
     if err != nil {
         panic(err)
     }
@@ -85,27 +82,19 @@ func main(){
     }
 
     // Will send to all promoted peers
-    l.Broadcast(message.New(config.BindAddress,"ping", []byte("ping"))
+    l.Broadcast(l.NewMessage(config.BindAddress,"ping", []byte("ping"))
 
     // Send to a specific peer
-    l.Broadcast(message.New(config.BindAddress,"ping", []byte("ping"), 
+    l.Broadcast(l.NewMessage(config.BindAddress,"ping", []byte("ping"), 
         utils.LegionAddressFromString("localhost:7946"))
     
     // Broadcast to a random 5 promoted peers
-    l.BroadcastRandom(message.New(config.BindAddress,"ping", []byte("ping"), 5)
+    l.BroadcastRandom(l.NewMessage(config.BindAddress,"ping", []byte("ping"), 5)
 
     // Block forever
     select {}
 }
 ```
-You can also set your own message validation function by setting the config value `MessageValidator` with:
-```golang
-config.MessageValidator = func(m *message.Message) bool {
-    // Do your validation here and return true if valid and false if not
-    return true
-}
-```
-Any message that is not valid will not be passed to plugins.
 
 ### Custom Logger
 The internal logger is a generic type that can be overridden by the user as long
@@ -145,48 +134,62 @@ l := logger.GetLogger() // Get the wrapper
 zerologger := l.(logger.ZeroLogger).Logger // Get the actual Zerolog instance (can change things like the formatting, output location, etc)
 ```
 
-### Plugins
+### Frameworks
 
 #### Writing your own
 
-A plugin is any struct that implements the plugin interface:
+A framework is any struct that implements the framework interface:
 
 ```go
-type PluginInterface interface {
-	NewMessage(ctx *MessageContext)
-	PeerAdded(ctx *PeerContext)
-	PeerPromotion(ctx *PeerContext)
-	PeerDisconnect(ctx *PeerContext)
-	Startup(ctx *NetworkContext)
-	Close(ctx *NetworkContext)
+type Framework interface {
+    // Set anything up you want with Legion when the Listen method is called.
+    // Should block until the framework is ready to accept messages.
+    Configure(*Legion) error
+
+    // Called before any message is passed to plugins
+    ValidateMessage(*MessageContext) bool
+
+    // Methods to interact with legion
+    NewMessage(*MessageContext)
+    PeerAdded(*PeerContext)
+    PeerDisconnect(*PeerContext)
+    Startup(*NetworkContext)
+    Close(*NetworkContext)
 }
+
 ```
 
-If you don't need all of these methods, you can use our handy GenericPlugin as an
+If you don't need all of these methods, you can use our handy GenericFramework as an
 [anonymous field](http://golangtutorials.blogspot.com/2011/06/anonymous-fields-in-structs-like-object.html)
 in your struct, like this:
 
 ```go
-type MyPlugin struct {
-	network.GenericPlugin
+type MyFramework struct {
+	network.GenericFramework
 	specialData string
 }
 
-func (m *MyPlugin) NewMessage(ctx *MessageContext) {
+func (f *MyFramework) NewMessage(ctx *MessageContext) {
 	fmt.Println(mspecialData)
 }
 ```
 
 by doing this, you only need to implement the methods you need and still conform to the interface.
 
-#### Included plugins
+#### Included frameworks
 
-Legion includes a few plugins to make your life easier, you can add them like this:
+Legion includes a Kademlia like DHT [framework built on top of Ethereum addresses](./frameworks/ethpool), you can use this for discovery if you'd like:
 
 ```go
-l := legion.New(conf)
-// Register our simple discovery plugin which sends lists of known peers to newly connected peers, as 
-// well as informing it's peers of the new connection
-l.RegisterPlugin(new(simpledisc.Plugin))
+// Create a new framework with a default address validator and a private key.
+f := ethpool.New(func(common.Address) bool { return true }, privKey)
 
+// Register it with legion
+l := legion.New(conf, f)
+
+// Connect to a peer
+l.AddPeer(utils.LegionAddressFromString("localhost:6000"))
+
+// Bootstrap with the remote peer
+f.Bootstrap()
 ```

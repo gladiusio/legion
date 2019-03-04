@@ -15,6 +15,9 @@ func NewLegionAddress(host string, port uint16) LegionAddress {
 // LegionAddressFromString returns a LegionAddress from a string
 func LegionAddressFromString(addrString string) LegionAddress {
 	split := strings.Split(addrString, ":")
+	if len(split) != 2 {
+		return LegionAddress{}
+	}
 	host := split[0]
 	host = resolveHost(host)
 	port, _ := strconv.Atoi(split[1])

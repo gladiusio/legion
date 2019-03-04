@@ -6,13 +6,12 @@ package legion
 import (
 	"github.com/gladiusio/legion/network"
 	"github.com/gladiusio/legion/network/config"
-	"github.com/gladiusio/legion/network/message"
 	"github.com/gladiusio/legion/utils"
 )
 
 // New returns a new Legion object which contains most of the function needed to work with the network.
-func New(c *config.LegionConfig) *network.Legion {
-	return network.NewLegion(c)
+func New(c *config.LegionConfig, f network.Framework) *network.Legion {
+	return network.NewLegion(c, f)
 }
 
 // DefaultConfig returns a config with only the bind address and port specified,
@@ -21,6 +20,5 @@ func DefaultConfig(bindAddress string, port uint16) *config.LegionConfig {
 	return &config.LegionConfig{
 		BindAddress:      utils.NewLegionAddress(bindAddress, port),
 		AdvertiseAddress: utils.NewLegionAddress(bindAddress, port),
-		MessageValidator: func(m *message.Message) bool { return true },
 	}
 }
