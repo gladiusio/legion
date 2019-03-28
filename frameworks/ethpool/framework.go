@@ -26,7 +26,7 @@ import (
 // IncomingMessage represents an incoming message after parsing
 type IncomingMessage struct {
 	Sender *protobuf.ID
-	Body   proto.Message
+	Body   []byte
 	Type   string
 }
 
@@ -245,7 +245,7 @@ func (f *Framework) NewMessage(ctx *network.MessageContext) {
 		ctx.Reply(m)
 
 	} else { // Send everything else to the receive channel
-		f.messageChan <- &IncomingMessage{Sender: dhtMessage.Sender, Body: dhtMessage, Type: ctx.Message.Type}
+		f.messageChan <- &IncomingMessage{Sender: dhtMessage.Sender, Body: dhtMessage.GetBody(), Type: ctx.Message.Type}
 	}
 }
 
