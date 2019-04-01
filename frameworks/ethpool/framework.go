@@ -65,6 +65,9 @@ type Framework struct {
 
 	// Keep track of ID's and network addresses in an efficient way
 	idMap *sync.Map
+
+	// Hooks
+	disconnectHook func(common.Address)
 }
 
 // Assert the type is correct
@@ -141,6 +144,11 @@ func (f *Framework) Bootstrap() {
 		return
 	}
 	f.l.Broadcast(m)
+}
+
+// RegisterPeerDisconnectHook runs the specified funtion when a peer disconnects
+func (f *Framework) RegisterPeerDisconnectHook(onDisconnect func(common.Address)) {
+	f.disconnectHook = onDisconnect
 }
 
 // SendMessage will send a signed version of the message to specified recipient
@@ -255,6 +263,8 @@ func (f *Framework) PeerDisconnect(ctx *network.PeerContext) {
 	if exists {
 		f.router.RemovePeer((id).(ID))
 	}
+
+	f.disconnectHook((id).(ID).EthereumAddress())
 }
 
 func getDHTMessageBody(body []byte) ([]byte, error) {
@@ -315,58 +325,54 @@ func (f *Framework) handlePong() {
 	for _, p := range peers {
 		f.router.Update(*p)
 	}
+}
 
+// FindPeer attempts to load the the given peer into the routing table by searching up to depth,
+// returns an error if not found
+func (f *Framework) FindPeer(target common.Address, depth int) error {
+	toFind := ID{EthAddress: target.Bytes()}
+	peers := f.router.FindClosestPeers(toFind, 1)
+
+	// If we already have it in the routing table, return
+	if len(peers) == 1 && bytes.Equal(peers[0].EthAddress, toFind.EthAddress) {
+		return nil
+	}
+
+	for i := 0; i < depth; i++ {
+		closest, err := f.findPeers(toFind, BucketSize)
+		if err != nil {
+			return err
+		}
+
+		for _, peerID := range closest {
+			if toFind.Equals(*peerID) {
+				return nil
+			}
+
+			f.router.Update(*peerID)
+		}
+	}
+
+	return errors.New("ethpool: could not find peer")
 }
 
 // Find the peers closest to the ethereum address given
 func (f *Framework) findPeers(target ID, count int) ([]*ID, error) {
 	// Get our currently connected peers and ask them for the closest to the target
-	wg, mux := &sync.WaitGroup{}, &sync.Mutex{}
+	wg, mux := &sync.WaitGroup{}, sync.Mutex{}
 	peers := make([]*ID, 0)
 
 	for _, peerID := range f.router.FindClosestPeers(target, count) {
 		wg.Add(1)
-
-		// Create the request
-		tID := protobuf.ID(target)
-		lookupRequest := &protobuf.LookupRequest{Target: &tID}
-		b, err := lookupRequest.Marshal()
-		if err != nil {
-			return nil, err
-		}
-		m, err := f.makeLegionSignedMessage("dht.lookup_request", b)
-		if err != nil {
-			return nil, err
-		}
-
-		// Preform the lookup
-		go func(p ID) {
+		go func(remote ID) {
 			defer wg.Done()
-
-			incoming, err := f.l.Request(m, time.Second, utils.LegionAddressFromString(p.NetworkAddress))
-			if err != nil {
-				log.Warn().Field("err", err.Error()).Field("peer", p.EthereumAddress()).Log("Request for lookup was not returned")
-				return
-			}
-
-			responseBytes, err := getDHTMessageBody(incoming.Body)
+			remoteClosest, err := f.performLookup(target, remote)
 			if err != nil {
 				return
-			}
-
-			lookupResponse := &protobuf.LookupResponse{}
-			err = lookupResponse.Unmarshal(responseBytes)
-			if err != nil {
-				return
-			}
-			// Convert the type
-			toAppend := make([]*ID, len(lookupResponse.GetPeers()))
-			for i, id := range lookupResponse.GetPeers() {
-				toAppend[i] = (*ID)(id)
 			}
 
 			mux.Lock()
-			peers = append(peers, toAppend...)
+			peers = append(peers, remoteClosest...)
 			mux.Unlock()
 		}(peerID)
 	}
@@ -388,4 +394,42 @@ func (f *Framework) findPeers(target ID, count int) ([]*ID, error) {
 
 	return peers, nil
 
+}
+
+func (f *Framework) performLookup(target, lookupPeer ID) ([]*ID, error) {
+	// Create the request
+	tID := protobuf.ID(target)
+	lookupRequest := &protobuf.LookupRequest{Target: &tID}
+	b, err := lookupRequest.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	m, err := f.makeLegionSignedMessage("dht.lookup_request", b)
+	if err != nil {
+		return nil, err
+	}
+
+	incoming, err := f.l.Request(m, time.Second, utils.LegionAddressFromString(lookupPeer.NetworkAddress))
+	if err != nil {
+		log.Warn().Field("err", err.Error()).Field("peer", lookupPeer.EthereumAddress()).Log("Request for lookup was not returned")
+		return nil, err
+	}
+
+	responseBytes, err := getDHTMessageBody(incoming.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	lookupResponse := &protobuf.LookupResponse{}
+	err = lookupResponse.Unmarshal(responseBytes)
+	if err != nil {
+		return nil, err
+	}
+	// Convert the type
+	peers := make([]*ID, len(lookupResponse.GetPeers()))
+	for i, id := range lookupResponse.GetPeers() {
+		peers[i] = (*ID)(id)
+	}
+
+	return peers, nil
 }
