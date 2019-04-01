@@ -356,6 +356,12 @@ func (f *Framework) FindPeer(target common.Address, depth int) error {
 	return errors.New("ethpool: could not find peer")
 }
 
+// HasPeer returns whether or not the target can be found in the routing table
+func (f *Framework) HasPeer(target common.Address) bool {
+	toFind := ID{EthAddress: target.Bytes()}
+	return f.router.PeerExists(toFind)
+}
+
 // Find the peers closest to the ethereum address given
 func (f *Framework) findPeers(target ID, count int) ([]*ID, error) {
 	// Get our currently connected peers and ask them for the closest to the target
