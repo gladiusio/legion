@@ -147,14 +147,20 @@ func (f *Framework) Bootstrap() {
 // it will error if the recipient can't be connected to or found
 func (f *Framework) SendMessage(recipient common.Address, messageType string, body proto.Message) error {
 	toFind := ID{EthAddress: recipient.Bytes()}
-	peers := f.router.FindClosestPeers(toFind, 1)
 
-	if len(peers) != 1 {
-		return errors.New("ethpool: could not find peer in routing table, try finding it first")
+	var peer *ID
+
+	for i := 0; i < 3; i++ {
+		peers := f.router.FindClosestPeers(toFind, 1)
+		if len(peers) != 1 || !bytes.Equal(peers[0].EthAddress, toFind.EthAddress) {
+			continue
+		}
+
+		peer = &peers[0]
 	}
 
-	if !bytes.Equal(peers[0].EthAddress, toFind.EthAddress) {
-		return errors.New("ethpool: could not find peer in routing table, try finding it first")
+	if peer == nil {
+		return errors.New("ethpool: could not find peer, it may be offline")
 	}
 
 	bodyBytes, err := proto.Marshal(body)
@@ -167,7 +173,7 @@ func (f *Framework) SendMessage(recipient common.Address, messageType string, bo
 		return errors.New("ethpool: could not make legion signed message")
 	}
 
-	la := utils.LegionAddressFromString(peers[0].NetworkAddress)
+	la := utils.LegionAddressFromString(peer.NetworkAddress)
 
 	f.l.Broadcast(m, la)
 
