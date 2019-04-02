@@ -262,9 +262,8 @@ func (f *Framework) PeerDisconnect(ctx *network.PeerContext) {
 	id, exists := f.idMap.Load(ctx.Peer.Remote())
 	if exists {
 		f.router.RemovePeer((id).(ID))
+		f.disconnectHook((id).(ID).EthereumAddress())
 	}
-
-	f.disconnectHook((id).(ID).EthereumAddress())
 }
 
 func getDHTMessageBody(body []byte) ([]byte, error) {
