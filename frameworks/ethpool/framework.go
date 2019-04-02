@@ -187,6 +187,11 @@ func (f *Framework) RecieveMessageChan() chan *IncomingMessage {
 	return f.messageChan
 }
 
+// GetPeers returns the list of currently known peers
+func (f *Framework) GetPeers() []ID {
+	return f.router.GetPeers()
+}
+
 // Address returns the ethereum address registered with the framework
 func (f *Framework) Address() common.Address {
 	return crypto.PubkeyToAddress(f.key.PublicKey)
