@@ -265,7 +265,7 @@ func (f *Framework) NewMessage(ctx *network.MessageContext) {
 // PeerDisconnect is called when a peer is deleted
 func (f *Framework) PeerDisconnect(ctx *network.PeerContext) {
 	id, exists := f.idMap.Load(ctx.Peer.Remote())
-	if exists {
+	if exists && id != nil {
 		f.router.RemovePeer((id).(ID))
 		f.disconnectHook((id).(ID).EthereumAddress())
 	}
