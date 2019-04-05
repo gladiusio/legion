@@ -56,6 +56,13 @@ type Peer struct {
 	disconnected chan struct{}
 }
 
+type logWriter struct{}
+
+func (*logWriter) Write(p []byte) (int, error) {
+	logger.Debug().Field("yamux_message", string(p))
+	return len(p), nil
+}
+
 // QueueMessage queues the specified message to be sent to the remote
 func (p *Peer) QueueMessage(m *transport.Message) {
 	go func() { p.sendQueue <- m }()
@@ -120,7 +127,9 @@ func (p *Peer) BlockUntilDisconnected() {
 // CreateClient takes an outgoing connection and creates a client session from it
 func (p *Peer) CreateClient(conn net.Conn) error {
 	// Setup client side of yamux
-	session, err := yamux.Client(conn, nil)
+	c := yamux.DefaultConfig()
+	c.LogOutput = &logWriter{}
+	session, err := yamux.Client(conn, c)
 	if err != nil {
 		return err
 	}
@@ -137,7 +146,9 @@ func (p *Peer) CreateClient(conn net.Conn) error {
 // CreateServer takes an incoming connection and creates a server session from it
 func (p *Peer) CreateServer(conn net.Conn) error {
 	// Setup server side of yamux
-	session, err := yamux.Server(conn, nil)
+	c := yamux.DefaultConfig()
+	c.LogOutput = &logWriter{}
+	session, err := yamux.Server(conn, c)
 	if err != nil {
 		return err
 	}
