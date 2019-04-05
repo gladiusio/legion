@@ -12,7 +12,7 @@ import (
 )
 
 // BucketSize defines the NodeID, Key, and routing table data structures.
-const BucketSize = 16
+const BucketSize = 64
 
 // RoutingTable contains one bucket list for lookups.
 type RoutingTable struct {
