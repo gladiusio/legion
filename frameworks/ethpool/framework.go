@@ -241,7 +241,7 @@ func (f *Framework) NewMessage(ctx *network.MessageContext) {
 		resp := &protobuf.LookupResponse{}
 
 		// Find the closest peers
-		for _, peer := range f.router.FindClosestPeers(ID(*lookupRequest.Target), BucketSize) {
+		for _, peer := range f.router.FindClosestPeers(ID(*lookupRequest.Target), SearchSzie) {
 			id := protobuf.ID(peer)
 			resp.Peers = append(resp.Peers, &id)
 		}
@@ -323,7 +323,7 @@ func (f *Framework) makeLegionSignedMessage(mType string, m []byte) (*transport.
 
 func (f *Framework) handlePong() {
 	// Find peers from all the closest remotes
-	peers, err := f.findPeers(*f.self, BucketSize)
+	peers, err := f.findPeers(*f.self, SearchSzie)
 	if err != nil {
 		return
 	}
@@ -345,7 +345,7 @@ func (f *Framework) FindPeer(target common.Address, depth int) error {
 	}
 
 	for i := 0; i < depth; i++ {
-		closest, err := f.findPeers(toFind, BucketSize)
+		closest, err := f.findPeers(toFind, SearchSzie)
 		if err != nil {
 			return err
 		}
@@ -400,8 +400,8 @@ func (f *Framework) findPeers(target ID, count int) ([]*ID, error) {
 
 	// Cut off list of results to only have the routing table focus on the
 	// #dht.BucketSize closest peers to the current node.
-	if len(peers) > BucketSize {
-		peers = peers[:BucketSize]
+	if len(peers) > SearchSzie {
+		peers = peers[:SearchSzie]
 	}
 
 	return peers, nil

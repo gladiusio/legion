@@ -11,8 +11,8 @@ import (
 	"sync"
 )
 
-// BucketSize defines the NodeID, Key, and routing table data structures.
-const BucketSize = 64
+// SearchSzie is how many nodes we want to ask for in lookups
+const SearchSzie = 16
 
 // RoutingTable contains one bucket list for lookups.
 type RoutingTable struct {
@@ -82,10 +82,7 @@ func (t *RoutingTable) Update(target ID) {
 	}
 
 	if element == nil {
-		// Populate bucket if its not full.
-		if bucket.Len() <= BucketSize {
-			bucket.PushFront(target)
-		}
+		bucket.PushFront(target)
 	} else {
 		bucket.MoveToFront(element)
 	}
