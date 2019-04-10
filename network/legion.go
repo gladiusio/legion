@@ -79,7 +79,13 @@ func (l *Legion) Broadcast(message *transport.Message, addresses ...utils.Legion
 			if !exists {
 				log.Warn().Log("Error sending message to peer, it may have disconnected")
 			}
-			p.(*Peer).QueueMessage(message)
+
+			toSend, ok := p.(*Peer)
+			if ok {
+				toSend.QueueMessage(message)
+			} else {
+				log.Warn().Log("Error sending message to peer, it may have disconnected")
+			}
 		}
 	}
 }
