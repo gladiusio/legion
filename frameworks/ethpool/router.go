@@ -165,7 +165,7 @@ func (t *RoutingTable) PeerExists(target ID) bool {
 	defer bucket.mutex.Unlock()
 
 	for e := bucket.Front(); e != nil; e = e.Next() {
-		if e.Value.(ID).Equals(target) {
+		if bytes.Equal(e.Value.(ID).EthereumAddress().Bytes(), target.EthereumAddress().Bytes()) {
 			return true
 		}
 	}
